@@ -4,7 +4,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.65%2B-red)
-![OpenCV](https://img.shields.io/badge/OpenCV-5.0%2B-green)
+![OpenCV](https://img.shields.io/badge/OpenCV-(headless)-5.0%2B-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 > **Educational Use Only** — This system is developed as an image-processing demonstration for academic purposes. Enhanced images are NOT guaranteed to be diagnostically superior and must NOT replace professional medical interpretation.
@@ -87,8 +87,8 @@ The app opens at `http://localhost:8501`.
 | Category | Package | Version |
 |----------|---------|---------|
 | Web Framework | `streamlit` | ≥1.65 |
-| Image Processing | `opencv-python` | ≥5.0 |
-| Numerical Computing | `numpy` | ≥2.5 |
+| Image Processing | `opencv-python-headless` | ≥4.10 |
+| Numerical Computing | `numpy` | ≥1.26 |
 | Image I/O | `pillow` | ≥12.0 |
 | Visualization | `plotly`, `matplotlib` | ≥7.0, ≥3.11 |
 | DICOM | `pydicom` | ≥3.0 |
