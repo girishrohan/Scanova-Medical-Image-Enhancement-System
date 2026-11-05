@@ -46,7 +46,23 @@ Noise Reduction → Contrast Enhancement → Edge Enhancement → Output
 
 ---
 
-## Installation
+## Deployment (Streamlit Cloud)
+
+### Option 1: Deploy via Streamlit Community Cloud (Recommended)
+
+1. Visit [share.streamlit.io](https://share.streamlit.io/)
+2. Sign in with your GitHub account
+3. Click **"New app"**
+4. Configure:
+   - **GitHub repo**: `girishrohan/Scanova-Medical-Image-Enhancement-System`
+   - **Branch**: `main`
+   - **Main file path**: `app.py`
+5. Click **"Deploy"**
+
+The app will be built and deployed automatically. The URL will be:
+`https://scanova-medical-image-enhancement-system.streamlit.app`
+
+### Option 2: Local Installation
 
 ```bash
 # Clone / navigate to project
