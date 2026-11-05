@@ -13,11 +13,10 @@ import numpy as np
 
 
 def render():
-    st.markdown("## 📊 Histogram Analysis")
+    st.markdown("## Histogram Analysis")
     st.markdown(
         "Pixel intensity histograms reveal the tonal distribution of an image. "
-        "A well-enhanced medical image often shows a broader, more uniform distribution "
-        "— though this does not automatically imply better diagnostic value."
+        "A broader distribution typically indicates higher contrast after enhancement."
     )
     st.divider()
 
@@ -31,9 +30,9 @@ def render():
         )
         return
 
-    # ── Histogram plots ────────────────────────────────────────────────────────
+    # ── Analysis tabs ────────────────────────────────────────────────────────
     tab_hist, tab_cdf, tab_stats = st.tabs(
-        ["📊 Intensity Histogram", "📈 CDF Comparison", "🔢 Statistics"]
+        ["Intensity Histogram", "CDF Comparison", "Statistics"]
     )
 
     with tab_hist:
@@ -63,6 +62,7 @@ def render():
 
 
 def _statistics_table(orig, enh):
+    """Display pixel intensity statistics comparison table."""
     import cv2
 
     def gray(img):
@@ -89,15 +89,15 @@ def _statistics_table(orig, enh):
     o_stats = stats_for(orig)
     e_stats = stats_for(enh)
 
-    st.markdown("#### Pixel Intensity Statistics (Grayscale-equivalent)")
+    st.markdown("### Pixel Intensity Statistics")
 
-    # Build table
-    cols = st.columns([2, 1.5, 1.5, 1.5])
-    headers = ["Metric", "Original", "Enhanced", "Change"]
+    # Build comparison table
+    cols = st.columns([2, 1.2, 1.2, 1.2])
+    headers = ["Metric", "Original", "Enhanced", "Δ Change"]
     for col, h in zip(cols, headers):
         col.markdown(
-            f"<div style='font-weight:700;color:#172B4D;padding:4px 0;"
-            f"border-bottom:2px solid #2563EB;'>{h}</div>",
+            f"<div style='font-weight:600;color:#172B4D;padding:0.4rem 0;"
+            f"border-bottom:1px solid #E2E8F0;font-size:0.85rem;'>{h}</div>",
             unsafe_allow_html=True,
         )
 
@@ -107,41 +107,43 @@ def _statistics_table(orig, enh):
         try:
             delta = round(float(ev) - float(ov), 4)
             delta_str = f"{delta:+.4g}"
-            color = "#10B981" if delta > 0 else ("#EF4444" if delta < 0 else "#64748B")
+            color = "#16A34A" if delta > 0 else ("#DC2626" if delta < 0 else "#64748B")
         except Exception:
             delta_str = "—"
             color = "#64748B"
 
-        r = st.columns([2, 1.5, 1.5, 1.5])
+        r = st.columns([2, 1.2, 1.2, 1.2])
         r[0].markdown(
-            f"<div style='padding:4px 0;font-size:0.88rem;color:#1E293B'>{metric}</div>",
+            f"<div style='padding:0.4rem 0;font-size:0.82rem;color:#1E293B;'>{metric}</div>",
             unsafe_allow_html=True
         )
         r[1].markdown(
-            f"<div style='padding:4px 0;font-size:0.88rem;font-family:monospace'>{ov}</div>",
+            f"<div style='padding:0.4rem 0;font-size:0.82rem;text-align:center;'>{ov}</div>",
             unsafe_allow_html=True
         )
         r[2].markdown(
-            f"<div style='padding:4px 0;font-size:0.88rem;font-family:monospace'>{ev}</div>",
+            f"<div style='padding:0.4rem 0;font-size:0.82rem;text-align:center;'>{ev}</div>",
             unsafe_allow_html=True
         )
         r[3].markdown(
-            f"<div style='padding:4px 0;font-size:0.88rem;font-weight:600;color:{color}'>{delta_str}</div>",
+            f"<div style='padding:0.4rem 0;font-size:0.82rem;font-weight:600;text-align:center;color:{color}'>{delta_str}</div>",
             unsafe_allow_html=True
         )
 
     st.divider()
-    st.markdown("##### Interpretation Guidelines")
-    st.markdown("""
-    | Metric | What it measures | Limitation |
-    |--------|-----------------|------------|
-    | **Mean Intensity** | Average brightness | Shifts with contrast methods |
-    | **Std. Deviation** | Global contrast (spread of intensities) | Also increases with noise |
-    | **Intensity Range** | Dynamic range used | Sensitive to single outlier pixels |
-    | **Entropy** | Information density / complexity | JPEG artefacts raise entropy |
-    | **Variance of Lap.** | Perceived sharpness (edge strength) | High noise ↑ this value artificially |
-    """)
+    st.markdown("### Interpretation Guidelines")
+    st.markdown(
+        "| Metric | What it measures | Limitation |\n"
+        "|--|--|--|\n"
+        "| **Mean** | Average brightness | Shifts with contrast methods |\n"
+        "| **Std. Deviation** | Global contrast | Also increases with noise |\n"
+        "| **Intensity Range** | Dynamic range used | Sensitive to outlier pixels |\n"
+        "| **Entropy** | Information density | JPEG artefacts raise entropy |\n"
+        "| **Variance of Lap.** | Perceived sharpness | High noise inflates value |",
+        unsafe_allow_html=True,
+    )
+
     st.caption(
-        "⚠ None of these metrics proves that an enhanced image is medically superior. "
-        "They describe pixel statistics only."
+        "Warning: These metrics describe pixel statistics only. "
+        "They do NOT measure diagnostic quality or clinical value."
     )

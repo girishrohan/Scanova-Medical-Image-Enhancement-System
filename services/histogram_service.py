@@ -72,6 +72,7 @@ def make_comparison_figure(
     """
     Create a side-by-side Plotly histogram comparison figure.
     Original on the left, Enhanced on the right.
+    Clean, professional styling per design brief.
     """
     orig_hist = compute_histogram(orig_image)
     enh_hist  = compute_histogram(enh_image)
@@ -81,47 +82,48 @@ def make_comparison_figure(
         rows=n_channels,
         cols=2,
         subplot_titles=_subplot_titles(orig_hist, enh_hist, n_channels),
-        horizontal_spacing=0.1,
-        vertical_spacing=0.15,
+        horizontal_spacing=0.05,
+        vertical_spacing=0.1,
     )
 
     for row_i, (och, ech) in enumerate(
         zip(orig_hist["channels"], enh_hist["channels"]), start=1
     ):
         bins = list(range(256))
-        # Original
+        # Original - Blue
         fig.add_trace(
             go.Bar(
                 x=bins,
                 y=och["hist"],
                 name=f"Original – {och['name']}",
-                marker_color=och["color"],
+                marker_color="rgba(37, 99, 235, 0.7)",
                 showlegend=False,
             ),
             row=row_i, col=1,
         )
-        # Enhanced
+        # Enhanced - Teal
         fig.add_trace(
             go.Bar(
                 x=bins,
                 y=ech["hist"],
                 name=f"Enhanced – {ech['name']}",
-                marker_color="rgba(20, 184, 166, 0.8)",  # Teal
+                marker_color="rgba(20, 184, 166, 0.85)",
                 showlegend=False,
             ),
             row=row_i, col=2,
         )
 
     fig.update_layout(
-        title=dict(text=title, font=dict(size=16, color="#172B4D")),
+        title=dict(text=title, font=dict(size=18, color="#172B4D", family="Inter, sans-serif", weight=600)),
         plot_bgcolor="#F8FAFC",
         paper_bgcolor="#FFFFFF",
         font=dict(family="Inter, sans-serif", size=12, color="#1E293B"),
-        margin=dict(l=40, r=40, t=80, b=40),
+        margin=dict(l=40, r=40, t=60, b=40),
         bargap=0,
+        height=450,
     )
-    fig.update_xaxes(title_text="Pixel Intensity (0–255)", range=[0, 255])
-    fig.update_yaxes(title_text="Pixel Count")
+    fig.update_xaxes(title_text="Pixel Intensity (0–255)", range=[0, 255], showgrid=True, gridwidth=1, gridcolor="#E2E8F0")
+    fig.update_yaxes(title_text="Pixel Count", showgrid=False)
     return fig
 
 
@@ -144,22 +146,24 @@ def make_cdf_figure(
             y=cdf.tolist(),
             mode="lines",
             name=label,
-            line=dict(color=color, width=2),
+            line=dict(color=color, width=2.5),
         ))
 
     add_cdf(orig_image, "Original",  "#2563EB")
     add_cdf(enh_image,  "Enhanced",  "#14B8A6")
 
     fig.update_layout(
-        title=dict(text="Cumulative Distribution Function (CDF)", font=dict(size=15, color="#172B4D")),
+        title=dict(text="Cumulative Distribution Function (CDF)", font=dict(size=16, color="#172B4D", family="Inter, sans-serif", weight=600)),
         xaxis_title="Pixel Intensity",
         yaxis_title="Cumulative Probability",
         plot_bgcolor="#F8FAFC",
         paper_bgcolor="#FFFFFF",
-        font=dict(family="Inter, sans-serif", size=12),
-        legend=dict(x=0.02, y=0.98),
+        font=dict(family="Inter, sans-serif", size=12, color="#1E293B"),
+        legend=dict(x=0.02, y=0.98, bgcolor="rgba(255,255,255,0.9)", bordercolor="#E2E8F0", borderwidth=1),
         margin=dict(l=40, r=20, t=60, b=40),
+        height=450,
     )
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor="#E2E8F0")
     return fig
 
 

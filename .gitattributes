@@ -1,0 +1,21 @@
+# Set default behavior for text files
+* text=auto
+
+# Explicitly declare text files
+*.py text
+*.txt text
+*.md text
+*.toml text
+*.cfg text
+*.ini text
+*.json text
+
+# Declare binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.bmp binary
+*.dcm binary
+
+# Ensure consistent line endings
+*.py working-tree-encoding=UTF-8

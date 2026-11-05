@@ -47,7 +47,7 @@ st.markdown(
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-    /* Root variables */
+    /* Root variables - matching design brief exactly */
     :root {{
         --navy:  {COLORS['navy']};
         --blue:  {COLORS['blue']};
@@ -55,6 +55,19 @@ st.markdown(
         --bg:    {COLORS['background']};
         --text:  {COLORS['text']};
         --muted: {COLORS['muted']};
+        --border: {COLORS['border']};
+
+        /* Typography scale */
+        --font-size-xs: 0.75rem;
+        --font-size-sm: 0.875rem;
+        --font-size-base: 1rem;
+        --font-size-md: 1.125rem;
+        --font-size-lg: 1.25rem;
+        --font-size-xl: 1.5rem;
+        --font-size-2xl: 1.75rem;
+        --font-size-3xl: 2rem;
+        --font-size-4xl: 2.5rem;
+        --font-size-5xl: 3rem;
     }}
 
     /* ── Global ─────────────────────────────────────────────────────── */
@@ -62,11 +75,13 @@ st.markdown(
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         background-color: var(--bg);
         color: var(--text);
+        font-size: 16px;
+        line-height: 1.6;
     }}
 
-    /* App background */
+    /* Clean app background - flat, professional */
     .stApp {{
-        background: linear-gradient(135deg, #EFF6FF 0%, #F1F5F9 50%, #F0FDF4 100%);
+        background: var(--bg);
         min-height: 100vh;
     }}
 
@@ -77,11 +92,12 @@ st.markdown(
         max-width: 1280px;
     }}
 
-    /* ── Sidebar ─────────────────────────────────────────────────────── */
+    /* ── Sidebar - sleek navy sidebar per design brief */
     section[data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, {COLORS['navy']} 0%, #1e3a5f 100%);
+        background: linear-gradient(180deg, var(--navy) 0%, #1e3a5f 100%);
         border-right: none;
-        box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+        box-shadow: 4px 0 20px rgba(0,0,0,0.12);
+        min-width: 280px;
     }}
     section[data-testid="stSidebar"] * {{
         color: #E2E8F0 !important;
@@ -109,16 +125,16 @@ st.markdown(
         font-size: 0.78rem;
     }}
 
-    /* ── Primary buttons ─────────────────────────────────────────────── */
+    /* ── Primary buttons - refined per design brief */
     .stButton > button[kind="primary"] {{
-        background: linear-gradient(135deg, {COLORS['blue']}, #1d4ed8);
+        background: var(--blue);
         border: none;
         color: white;
-        border-radius: 10px;
+        border-radius: 8px;
         font-weight: 600;
         font-size: 0.9rem;
-        padding: 0.55rem 1.2rem;
-        transition: all 0.2s ease;
+        padding: 0.75rem 1.5rem;
+        transition: all 0.15s ease;
         box-shadow: 0 4px 12px rgba(37,99,235,0.35);
     }}
     .stButton > button[kind="primary"]:hover {{
@@ -127,29 +143,29 @@ st.markdown(
     }}
     .stButton > button[kind="secondary"] {{
         background: white;
-        border: 1.5px solid #E2E8F0;
-        color: {COLORS['navy']};
-        border-radius: 10px;
+        border: 1.5px solid var(--border);
+        color: var(--navy);
+        border-radius: 8px;
         font-weight: 600;
         font-size: 0.9rem;
-        transition: all 0.2s ease;
+        transition: all 0.15s ease;
     }}
     .stButton > button[kind="secondary"]:hover {{
-        border-color: {COLORS['blue']};
-        color: {COLORS['blue']};
+        border-color: var(--blue);
+        color: var(--blue);
         box-shadow: 0 2px 8px rgba(37,99,235,0.2);
     }}
 
-    /* ── Download button ─────────────────────────────────────────────── */
+    /* ── Download button - teal for secondary action */
     .stDownloadButton > button {{
-        background: linear-gradient(135deg, {COLORS['teal']}, #0d9488);
+        background: var(--teal);
         border: none;
         color: white;
-        border-radius: 10px;
+        border-radius: 8px;
         font-weight: 600;
         font-size: 0.9rem;
-        padding: 0.55rem 1.2rem;
-        transition: all 0.2s ease;
+        padding: 0.75rem 1.5rem;
+        transition: all 0.15s ease;
         box-shadow: 0 4px 12px rgba(20,184,166,0.35);
     }}
     .stDownloadButton > button:hover {{
@@ -157,114 +173,141 @@ st.markdown(
         box-shadow: 0 6px 18px rgba(20,184,166,0.45);
     }}
 
-    /* ── Metric cards ────────────────────────────────────────────────── */
+    /* ── Metric cards - refined with subtle shadow */
     [data-testid="stMetric"] {{
         background: white;
-        border: 1px solid #E2E8F0;
-        border-radius: 12px;
-        padding: 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        transition: box-shadow 0.2s;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1.25rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        transition: box-shadow 0.15s;
     }}
     [data-testid="stMetric"]:hover {{
-        box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
     }}
     [data-testid="stMetricLabel"] p {{
         color: #64748B;
-        font-size: 0.78rem;
+        font-size: 0.75rem;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.08em;
     }}
     [data-testid="stMetricValue"] {{
-        color: {COLORS['navy']};
+        color: var(--navy);
         font-weight: 700;
+        font-size: 1.5rem;
     }}
 
-    /* ── Tabs ────────────────────────────────────────────────────────── */
+    /* ── Tabs - clean with subtle borders */
     .stTabs [data-baseweb="tab-list"] {{
         background: white;
-        border-radius: 12px;
-        padding: 4px;
-        gap: 2px;
-        border: 1px solid #E2E8F0;
+        border-radius: 10px;
+        padding: 6px;
+        gap: 4px;
+        border: 1px solid var(--border);
         box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }}
     .stTabs [data-baseweb="tab"] {{
-        border-radius: 9px;
+        border-radius: 8px;
         font-weight: 600;
         font-size: 0.85rem;
         color: #64748B;
         padding: 8px 16px;
     }}
     .stTabs [aria-selected="true"] {{
-        background: linear-gradient(135deg, {COLORS['blue']}, #1d4ed8);
+        background: linear-gradient(135deg, var(--blue), #1d4ed8);
         color: white !important;
     }}
 
-    /* ── Expander ────────────────────────────────────────────────────── */
+    /* ── Expander - clean and consistent */
     .streamlit-expanderHeader {{
         background: white;
-        border: 1px solid #E2E8F0;
+        border: 1px solid var(--border);
         border-radius: 10px;
         font-weight: 600;
-        color: {COLORS['navy']};
+        color: var(--navy);
+        padding: 0.75rem 1rem;
     }}
     .streamlit-expanderContent {{
-        background: #F8FAFC;
-        border: 1px solid #E2E8F0;
+        background: var(--bg);
+        border: 1px solid var(--border);
         border-top: none;
         border-radius: 0 0 10px 10px;
+        padding: 1rem;
     }}
 
-    /* ── File uploader ───────────────────────────────────────────────── */
+    /* ── File uploader - clean dashed border */
     [data-testid="stFileUploaderDropzone"] {{
         background: linear-gradient(135deg, #EFF6FF, #F0F9FF);
-        border: 2px dashed {COLORS['blue']};
-        border-radius: 14px;
-        transition: all 0.2s ease;
+        border: 2px dashed var(--blue);
+        border-radius: 12px;
+        transition: all 0.15s ease;
     }}
     [data-testid="stFileUploaderDropzone"]:hover {{
-        border-color: {COLORS['teal']};
+        border-color: var(--teal);
         background: linear-gradient(135deg, #F0FDF4, #ECFDF5);
     }}
 
-    /* ── Info / Warning / Success boxes ─────────────────────────────── */
+    /* ── Info / Warning / Success boxes - proper left border colors */
     .stAlert {{
         border-radius: 10px;
         border-left-width: 4px;
     }}
+    .stAlert[data-baseweb="alert"]:has(.css-1v7q57l) {{
+        border-left-color: var(--error);
+    }}
+    .stAlert[data-baseweb="alert"]:has(.css-1v7q57l) {{
+        border-left-color: #16A34A;
+    }}
 
-    /* ── Images ──────────────────────────────────────────────────────── */
+    /* ── Images - clean with subtle border */
     [data-testid="stImage"] img {{
         border-radius: 10px;
-        border: 1px solid #E2E8F0;
+        border: 1px solid var(--border);
         box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     }}
 
-    /* ── Dividers ────────────────────────────────────────────────────── */
+    /* ── Dividers - clean subtle line */
     hr {{
-        border-color: #E2E8F0;
-        margin: 1.5rem 0;
+        border-color: var(--border);
+        margin: 2rem 0;
     }}
 
-    /* ── Heading colours ─────────────────────────────────────────────── */
-    h1, h2, h3 {{
-        color: {COLORS['navy']};
+    /* ── Heading colours - consistent dark navy */
+    h1, h2, h3, h4, h5, h6 {{
+        color: var(--navy);
         font-weight: 700;
+        line-height: 1.3;
     }}
-    h2 {{ font-size: 1.5rem; }}
-    h3 {{ font-size: 1.15rem; }}
+    h1 {{ font-size: 2.5rem; }}
+    h2 {{ font-size: 1.75rem; }}
+    h3 {{ font-size: 1.25rem; }}
+    h4 {{ font-size: 1.125rem; }}
 
-    /* ── Progress bar ────────────────────────────────────────────────── */
+    /* ── Progress bar - clean gradient */
     .stProgress > div > div > div {{
-        background: linear-gradient(90deg, {COLORS['blue']}, {COLORS['teal']});
+        background: linear-gradient(90deg, var(--blue), var(--teal));
         border-radius: 99px;
     }}
 
-    /* ── Spinner ─────────────────────────────────────────────────────── */
+    /* ── Spinner - brand color */
     .stSpinner > div {{
-        border-top-color: {COLORS['blue']} !important;
+        border-top-color: var(--blue) !important;
+    }}
+
+    /* ── Code blocks - consistent style */
+    code, pre {{
+        font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+        font-size: 0.875rem;
+        background: #F1F5F9;
+        border-radius: 6px;
+        padding: 0.25rem 0.5rem;
+    }}
+
+    /* ── Tables - clean grid */
+    table {{
+        border-collapse: separate;
+        border-spacing: 0;
     }}
     </style>
     """,
@@ -278,15 +321,12 @@ def _render_sidebar() -> tuple[str, PipelineSettings]:
         # Brand
         st.markdown(
             f"""
-            <div style="text-align:center; padding:1.2rem 0 0.5rem;">
-                <div style="font-size:2.8rem;">🩻</div>
-                <div style="font-size:1.5rem; font-weight:800; color:#FFFFFF;
+            <div style="text-align:center; padding:1.5rem 0 0.75rem;">
+                <div style="font-size:3rem; margin-bottom:0.5rem;">🩻</div>
+                <div style="font-size:1.6rem; font-weight:800; color:#FFFFFF;
                             letter-spacing:0.04em;">SCANOVA</div>
-                <div style="font-size:0.72rem; color:#94A3B8; margin-top:2px;
-                            letter-spacing:0.06em;">A Clearer View of Every Scan.</div>
-                <div style="font-size:0.65rem; color:#64748B; margin-top:4px;">
-                    CGIP Mini Project · v{APP_VERSION}
-                </div>
+                <div style="font-size:0.78rem; color:#94A3B8; margin-top:2px;
+                            letter-spacing:0.08em;">A Clearer View of Every Scan.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -296,36 +336,35 @@ def _render_sidebar() -> tuple[str, PipelineSettings]:
 
         # Navigation
         st.markdown(
-            "<div style='font-size:0.7rem;font-weight:700;color:#64748B;"
-            "letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;'>"
+            "<div style='font-size:0.7rem;font-weight:700;color:#CBD5E1;"
+            "letter-spacing:0.1em;text-transform:uppercase;margin:0.5rem 0 0.75rem;'>"
             "Navigation</div>",
             unsafe_allow_html=True,
         )
         pages = [
-            ("🏠",  "Home"),
-            ("🔬",  "Image Enhancement"),
-            ("⚖️",   "Image Comparison"),
-            ("📊",  "Histogram Analysis"),
-            ("📈",  "Image Information"),
-            ("📑",  "About Project"),
+            ("Home",),
+            ("Image Enhancement",),
+            ("Image Comparison",),
+            ("Histogram Analysis",),
+            ("Image Information",),
+            ("About Project",),
         ]
-        page_labels = [f"{icon}  {name}" for icon, name in pages]
+        page_labels = [name[0] for name in pages]
         selected_label = st.radio(
             "navigation",
             options=page_labels,
             label_visibility="collapsed",
             key="page_radio",
         )
-        # Extract clean page name
-        page_name = selected_label.split("  ", 1)[-1]
+        page_name = selected_label
 
         st.markdown("---")
 
         # ── Processing Settings ────────────────────────────────────────────────
         st.markdown(
-            "<div style='font-size:0.7rem;font-weight:700;color:#64748B;"
-            "letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;'>"
-            "⚙ Enhancement Settings</div>",
+            "<div style='font-size:0.7rem;font-weight:700;color:#CBD5E1;"
+            "letter-spacing:0.1em;text-transform:uppercase;margin:0.5rem 0 0.75rem;'>"
+            "Enhancement Settings</div>",
             unsafe_allow_html=True,
         )
 
@@ -446,23 +485,60 @@ def _render_sidebar() -> tuple[str, PipelineSettings]:
 
 # ── Home page ─────────────────────────────────────────────────────────────────
 def _render_home():
-    # Hero
+    """Render the professional home page with modern aesthetic."""
+
+    # Hero section - clean, professional
     st.markdown(
         f"""
-        <div style="background:linear-gradient(135deg,{COLORS['navy']} 0%,#1e40af 60%,#0891b2 100%);
-                    border-radius:20px; padding:3rem 2.5rem; margin-bottom:2rem;
-                    box-shadow:0 10px 40px rgba(23,43,77,0.25);">
-            <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
-                <div style="font-size:5rem;">🩻</div>
-                <div>
-                    <h1 style="color:white;margin:0;font-size:2.8rem;font-weight:800;
-                                letter-spacing:-0.02em;">SCANOVA</h1>
-                    <p style="color:#93C5FD;margin:4px 0;font-size:1.1rem;font-style:italic;">
+        <div style="
+            background: linear-gradient(135deg, {COLORS['navy']} 0%, #1e3a5f 40%, #2563EB 100%);
+            border-radius: 20px;
+            padding: 3.5rem 2.5rem;
+            margin-bottom: 2.5rem;
+            box-shadow: 0 20px 60px rgba(23, 43, 77, 0.3);
+            color: white;
+        ">
+            <div style="display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
+                <div style="
+                    width: 120px;
+                    height: 120px;
+                    background: rgba(255,255,255,0.1);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 4rem;
+                    backdrop-filter: blur(10px);
+                ">
+                    🩻
+                </div>
+                <div style="flex: 1; min-width: 300px;">
+                    <h1 style="
+                        color: white;
+                        margin: 0 0 0.5rem 0;
+                        font-size: 2.8rem;
+                        font-weight: 800;
+                        letter-spacing: -0.02em;
+                        line-height: 1.2;
+                    ">SCANOVA</h1>
+                    <p style="
+                        color: #CBD5E1;
+                        margin: 0 0 1rem 0;
+                        font-size: 1.1rem;
+                        font-style: italic;
+                        opacity: 0.95;
+                        max-width: 550px;
+                    ">
                         A Clearer View of Every Scan.
                     </p>
-                    <p style="color:#CBD5E1;margin:8px 0 0;font-size:0.9rem;max-width:600px;">
-                        A Computer Graphics &amp; Image Processing mini project demonstrating
-                        real digital image enhancement algorithms on medical imaging modalities.
+                    <p style="
+                        color: #94A3B8;
+                        margin: 0;
+                        font-size: 0.95rem;
+                        line-height: 1.6;
+                        max-width: 550px;
+                    ">
+                        A Computer Graphics & Image Processing project demonstrating real digital image enhancement algorithms on medical imaging modalities.
                     </p>
                 </div>
             </div>
@@ -471,20 +547,20 @@ def _render_home():
         unsafe_allow_html=True,
     )
 
-    # Feature cards
+    # Features section - clean cards
     features = [
         ("🔬", "Real Algorithms",
-         "Actual OpenCV implementations: Median/Gaussian filtering, CLAHE, Unsharp Masking."),
+         "Median/Gaussian filtering, CLAHE, Unsharp Masking using OpenCV."),
         ("📊", "Histogram Analysis",
          "Interactive Plotly histograms and CDF comparison from actual pixel data."),
         ("⚖️", "Before / After",
          "Side-by-side comparison with quantitative quality metrics."),
         ("🏥", "DICOM Support",
-         "Load DICOM files with Hounsfield Unit windowing and MONOCHROME1/2 handling."),
+         "Load DICOM files with Hounsfield Unit windowing and modality handling."),
         ("📑", "PDF Report",
-         "Generate an academic ReportLab PDF with parameters, metrics, and images."),
+         "Generate academic ReportLab PDF with parameters, metrics, and images."),
         ("🎓", "Viva Ready",
-         "12+ viva Q&A, algorithm explanations, pseudocode, and project documentation."),
+         "12+ viva Q&A, algorithm explanations, pseudocode, and documentation."),
     ]
 
     cols = st.columns(3, gap="medium")
@@ -492,63 +568,128 @@ def _render_home():
         with cols[i % 3]:
             st.markdown(
                 f"""
-                <div style="background:white;border:1px solid #E2E8F0;border-radius:14px;
-                            padding:1.4rem;margin-bottom:1rem;
-                            box-shadow:0 2px 10px rgba(0,0,0,0.05);
-                            transition:all 0.2s ease;">
-                    <div style="font-size:2rem;margin-bottom:0.6rem;">{icon}</div>
-                    <div style="font-weight:700;color:{COLORS['navy']};
-                                margin-bottom:0.4rem;font-size:0.95rem;">{title}</div>
-                    <div style="color:{COLORS['muted']};font-size:0.82rem;
-                                line-height:1.5;">{desc}</div>
+                <div style="
+                    background: white;
+                    border: 1px solid {COLORS['border']};
+                    border-radius: 12px;
+                    padding: 1.5rem;
+                    margin-bottom: 1rem;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+                    transition: all 0.15s ease;
+                ">
+                    <div style="font-size: 2rem; margin-bottom: 0.7rem;">{icon}</div>
+                    <div style="
+                        font-weight: 700;
+                        color: {COLORS['navy']};
+                        margin-bottom: 0.5rem;
+                        font-size: 1rem;
+                    ">
+                        {title}
+                    </div>
+                    <div style="
+                        color: {COLORS['muted']};
+                        font-size: 0.85rem;
+                        line-height: 1.5;
+                    ">
+                        {desc}
+                    </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
-    # Pipeline overview
+    # Pipeline overview - clean step indicators
     st.markdown("---")
-    st.markdown("### 🔄 Enhancement Pipeline")
+    st.markdown("### Enhancement Pipeline")
+    st.markdown(
+        f"<p style='color: {COLORS['muted']}; font-size: 0.95rem; margin-bottom: 1.5rem;'>"
+        "Follow the stages below to enhance your medical images.</p>",
+        unsafe_allow_html=True,
+    )
+
     stages = [
         ("1", "Acquisition", "Load & validate"),
         ("2", "Grayscale", "Smart conversion"),
         ("3", "Denoise", "Median / Gaussian"),
         ("4", "Contrast", "CLAHE / HE"),
         ("5", "Sharpen", "Unsharp masking"),
-        ("6", "Output", "Download & analyse"),
+        ("6", "Output", "Download & compare"),
     ]
     pcols = st.columns(6, gap="small")
     for col, (num, title, sub) in zip(pcols, stages):
         with col:
             st.markdown(
                 f"""
-                <div style="text-align:center;background:white;border-radius:12px;
-                            padding:0.9rem 0.4rem;border:1px solid #E2E8F0;
-                            box-shadow:0 2px 8px rgba(0,0,0,0.05);">
-                    <div style="background:linear-gradient(135deg,{COLORS['blue']},{COLORS['teal']});
-                                color:white;border-radius:50%;width:32px;height:32px;
-                                display:flex;align-items:center;justify-content:center;
-                                font-weight:700;font-size:0.9rem;margin:0 auto 6px;">
+                <div style="
+                    text-align: center;
+                    background: white;
+                    border-radius: 12px;
+                    padding: 1rem 0.5rem;
+                    border: 1px solid {COLORS['border']};
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+                ">
+                    <div style="
+                        background: linear-gradient(135deg, {COLORS['blue']}, {COLORS['teal']});
+                        color: white;
+                        border-radius: 50%;
+                        width: 36px;
+                        height: 36px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-weight: 700;
+                        font-size: 0.95rem;
+                        margin: 0 auto 8px;
+                    ">
                         {num}
                     </div>
-                    <div style="font-weight:700;color:{COLORS['navy']};font-size:0.82rem;">{title}</div>
-                    <div style="color:{COLORS['muted']};font-size:0.72rem;margin-top:2px;">{sub}</div>
+                    <div style="
+                        font-weight: 700;
+                        color: {COLORS['navy']};
+                        font-size: 0.8rem;
+                        margin-bottom: 2px;
+                    ">
+                        {title}
+                    </div>
+                    <div style="
+                        color: {COLORS['muted']};
+                        font-size: 0.7rem;
+                        margin-top: 2px;
+                    ">
+                        {sub}
+                    </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
-    # CTA
+    # CTA section - clean and prominent
     st.markdown("---")
     st.markdown(
         f"""
-        <div style="text-align:center;padding:2rem;background:linear-gradient(135deg,#EFF6FF,#F0FDF4);
-                    border-radius:16px;border:1px solid #E2E8F0;">
-            <div style="font-size:1.2rem;font-weight:700;color:{COLORS['navy']};margin-bottom:0.5rem;">
-                Ready to enhance your images?
+        <div style="
+            text-align: center;
+            padding: 2.5rem 1.5rem;
+            background: {COLORS['bg_secondary']};
+            border-radius: 16px;
+            border: 1px solid {COLORS['border']};
+            margin-top: 1.5rem;
+        ">
+            <div style="
+                font-size: 1.2rem;
+                font-weight: 700;
+                color: {COLORS['navy']};
+                margin-bottom: 0.75rem;
+            ">
+                Ready to enhance your medical images?
             </div>
-            <div style="color:{COLORS['muted']};font-size:0.9rem;margin-bottom:1rem;">
-                Select <b>Image Enhancement</b> from the sidebar to get started.
+            <div style="
+                color: {COLORS['muted']};
+                font-size: 0.95rem;
+                max-width: 450px;
+                margin: 0 auto;
+            ">
+                Select <strong>Image Enhancement</strong> from the sidebar to begin processing.
             </div>
         </div>
         """,
@@ -560,7 +701,7 @@ def _render_home():
     st.warning(DISCLAIMER, icon="⚠️")
 
     # Sample images preview
-    st.markdown("### 🗂 Available Demo Images")
+    st.markdown("### Available Demo Images")
     sample_cols = st.columns(3, gap="medium")
     sample_paths = {
         name: os.path.join(SAMPLE_IMAGE_DIR, fname)

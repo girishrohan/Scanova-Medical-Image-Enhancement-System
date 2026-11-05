@@ -12,10 +12,9 @@ from utils.image_formatting import human_file_size, format_shape, channels_str
 
 
 def render():
-    st.markdown("## 📈 Image Information & Quality Analysis")
+    st.markdown("## Image Information & Quality Analysis")
     st.markdown(
-        "Technical statistics about the uploaded and enhanced images. "
-        "All values are computed from actual image pixel data."
+        "Technical statistics computed from actual image pixel data."
     )
     st.divider()
 
@@ -31,7 +30,7 @@ def render():
     em = compute_metrics(enh) if enh is not None else None
 
     # ── Image Properties ───────────────────────────────────────────────────────
-    st.markdown("### 🖼 Image Properties")
+    st.markdown("### Image Properties")
     col1, col2 = st.columns(2)
 
     with col1:
@@ -53,13 +52,13 @@ def render():
                 "Channels":   channels_str(enh),
                 "Pixel Type": str(enh.dtype),
                 "Total Pixels": f"{em.num_pixels:,}",
-                "Output Format": "PNG (in-memory)",
+                "Output Format": "PNG",
                 "Processing":    f"{pr.total_time_ms:.1f} ms" if pr else "—",
             })
 
     # ── Quality Indicators ────────────────────────────────────────────────────
     st.divider()
-    st.markdown("### 🔬 Quality Indicators")
+    st.markdown("### Quality Indicators")
 
     indicators = [
         ("Mean Intensity",
@@ -114,7 +113,7 @@ def render():
     # ── Processing breakdown ──────────────────────────────────────────────────
     if pr:
         st.divider()
-        st.markdown("### ⏱ Stage-by-Stage Timing")
+        st.markdown("### Processing Timing")
         for stage, ms in pr.stage_times_ms.items():
             st.progress(
                 int(min(ms / pr.total_time_ms * 100, 100)),
@@ -125,7 +124,7 @@ def render():
     # ── Limitations notice ────────────────────────────────────────────────────
     st.divider()
     st.warning(
-        "**Metric Limitations**: These indicators describe pixel-level statistics. "
+        "These indicators describe pixel-level statistics. "
         "They do NOT measure diagnostic quality, clinical utility, or medical accuracy. "
         "A higher sharpness score can indicate noise amplification. "
         "Do not use these metrics to make clinical decisions.",
@@ -134,12 +133,14 @@ def render():
 
 
 def _card_table(data: dict):
+    """Display statistics in a clean two-column list format."""
     for k, v in data.items():
         st.markdown(
-            f"<div style='display:flex;justify-content:space-between;padding:5px 10px;"
-            f"background:#F8FAFC;border-radius:6px;margin:3px 0;font-size:0.85rem;'>"
-            f"<span style='color:#64748B;font-weight:600;'>{k}</span>"
-            f"<span style='color:#172B4D;font-weight:700;'>{v}</span>"
+            f"<div style='display:flex;justify-content:space-between;padding:0.5rem 1rem;"
+            f"background:#F8FAFC;border-radius:8px;margin:0.25rem 0;"
+            f"border:1px solid #E2E8F0;font-size:0.82rem;'>"
+            f"<span style='color:#64748B;font-weight:500;'>{k}</span>"
+            f"<span style='color:#172B4D;font-weight:600;'>{v}</span>"
             f"</div>",
             unsafe_allow_html=True,
         )

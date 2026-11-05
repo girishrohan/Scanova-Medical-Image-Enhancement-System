@@ -5,16 +5,23 @@ Side-by-side before/after comparison page.
 """
 
 from __future__ import annotations
+
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import streamlit as st
+from config import COLORS
 from services.export_service import image_to_display_rgb, image_to_png_bytes
 from utils.image_formatting import format_shape, channels_str
 
 
 def render():
-    st.markdown("## ⚖ Image Comparison")
+    st.markdown("## Image Comparison")
     st.markdown(
         "Compare your original and enhanced images side by side. "
-        "All images shown are the actual uploaded and processed data."
+        "All images shown are from actual uploaded and processed data."
     )
     st.divider()
 
@@ -26,33 +33,36 @@ def render():
         _no_image_notice()
         return
 
-    # ── Side-by-side ──────────────────────────────────────────────────────────
+    # ── Side-by-side comparison ────────────────────────────────────────────────────────
     col_l, col_r = st.columns(2, gap="medium")
 
     with col_l:
         st.markdown(
-            "<div style='text-align:center; font-weight:700; color:#172B4D; "
-            "background:#EFF6FF; padding:6px; border-radius:8px;'>ORIGINAL</div>",
+            "<div style='text-align:center; font-weight:600; color:#172B4D; "
+            "background:#EFF6FF; padding:0.5rem 1rem; border-radius:10px; "
+            "font-size:0.95rem; margin-bottom:1rem;'>Original</div>",
             unsafe_allow_html=True,
         )
         st.image(image_to_display_rgb(orig), use_container_width=True)
-        _props_table(orig, "Original")
+        _props_table(orig)
 
     with col_r:
         st.markdown(
-            "<div style='text-align:center; font-weight:700; color:#FFFFFF; "
-            "background:#14B8A6; padding:6px; border-radius:8px;'>ENHANCED</div>",
+            "<div style='text-align:center; font-weight:600; color:#FFFFFF; "
+            "background:#14B8A6; padding:0.5rem 1rem; border-radius:10px; "
+            "font-size:0.95rem; margin-bottom:1rem;'>Enhanced</div>",
             unsafe_allow_html=True,
         )
         st.image(image_to_display_rgb(enh), use_container_width=True)
-        _props_table(enh, "Enhanced")
+        _props_table(enh)
 
     # ── Download ──────────────────────────────────────────────────────────────
     st.divider()
+    st.markdown("### Download")
     col_dl, _ = st.columns([1, 2])
     with col_dl:
         st.download_button(
-            "⬇ Download Enhanced PNG",
+            "Download Enhanced PNG",
             data=image_to_png_bytes(enh),
             file_name="scanova_enhanced.png",
             mime="image/png",
@@ -63,7 +73,7 @@ def render():
     # ── Delta metric summary ───────────────────────────────────────────────────
     if pr:
         st.divider()
-        st.markdown("### 📈 Quick Comparison Metrics")
+        st.markdown("### Comparison Metrics")
         d = pr.delta
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Std. Dev. Δ",     f"{pr.original_metrics.std:.1f} → {pr.enhanced_metrics.std:.1f}",      f"{d.get('std_delta_pct',0):+.1f}%")
@@ -72,41 +82,27 @@ def render():
         c4.metric("Int. Range Δ",    f"{pr.original_metrics.intensity_range} → {pr.enhanced_metrics.intensity_range}", f"{d.get('range_delta',0):+d}")
 
         st.caption(
-            "⚠ These pixel-level statistics describe mathematical changes in the image. "
-            "They do not measure diagnostic quality or clinical value."
+            "Note: These statistics describe mathematical changes. "
+            "They do NOT measure diagnostic quality or clinical value."
         )
 
     # ── Processing settings recap ─────────────────────────────────────────────
     if pr:
-        with st.expander("⚙ Applied Processing Settings"):
+        with st.expander("Applied Processing Settings"):
             s = pr.settings
-            settings_text = (
-                f"**Noise Reduction**: {s.noise_method} (kernel {s.kernel_size}×{s.kernel_size})  \n"
-                f"**Contrast**: {s.contrast_method}"
-                + (f" — clip {s.clahe_clip_limit}, tiles {s.clahe_tile_grid}×{s.clahe_tile_grid}" if s.contrast_method == "CLAHE" else "")
-                + f"  \n**Sharpening**: α={s.sharpen_strength}, σ={s.sharpen_sigma}"
-                + f"  \n**Processing Time**: {pr.total_time_ms:.1f} ms"
-            )
+            settings_text = f"""
+            **Noise Reduction**: {s.noise_method} (kernel {s.kernel_size}×{s.kernel_size})
+
+            **Contrast**: {s.contrast_method}"
+            + (f" — clip {s.clahe_clip_limit}, tiles {s.clahe_tile_grid}×{s.clahe_tile_grid}" if s.contrast_method == "CLAHE" else "")
+            + f"
+
+            **Sharpening**: α={s.sharpen_strength}, σ={s.sharpen_sigma}"
+            + f"
+
+            **Processing Time**: {pr.total_time_ms:.1f} ms
+            """
             st.markdown(settings_text)
-
-
-def _props_table(image, label: str):
-    import numpy as np
-    rows = {
-        "Shape":    format_shape(image),
-        "Channels": channels_str(image),
-        "Dtype":    str(image.dtype),
-        "Min / Max": f"{int(image.min())} / {int(image.max())}",
-        "Mean":     f"{float(image.mean()):.2f}",
-    }
-    for k, v in rows.items():
-        st.markdown(
-            f"<div style='display:flex;justify-content:space-between;padding:4px 8px;"
-            f"background:#F8FAFC;border-radius:5px;margin:2px 0;font-size:0.82rem;'>"
-            f"<span style='color:#64748B'>{k}</span><span style='color:#172B4D;font-weight:600'>{v}</span>"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
 
 
 def _no_image_notice():
@@ -116,11 +112,11 @@ def _no_image_notice():
         icon="ℹ️",
     )
     st.markdown(
-        """
-        <div style="text-align:center;padding:3rem;color:#64748B">
-            <div style="font-size:4rem">⚖️</div>
-            <h3 style="color:#172B4D">Nothing to Compare Yet</h3>
-            <p>Enhance an image first, then come back here.</p>
+        f"""
+        <div style="text-align:center; padding:3rem; color:{COLORS['muted']}">
+            <div style="font-size:4rem; margin-bottom:1rem;">⚖️</div>
+            <h3 style="color:{COLORS['navy']}; margin-bottom:0.5rem;">Nothing to Compare Yet</h3>
+            <p style="margin:0; color:{COLORS['muted']}">Enhance an image first, then come back here.</p>
         </div>
         """,
         unsafe_allow_html=True,

@@ -7,19 +7,21 @@ APP_VERSION = "1.0.0"
 PROJECT_FULL_NAME = "CGIP – Medical Image Enhancement System"
 
 # ─── Colour Palette ───────────────────────────────────────────────────────────
+# Per design brief: Professional medical technology palette
 COLORS = {
-    "navy":       "#172B4D",
-    "blue":       "#2563EB",
-    "teal":       "#14B8A6",
-    "background": "#F1F5F9",
-    "white":      "#FFFFFF",
-    "text":       "#1E293B",
-    "muted":      "#64748B",
-    "success":    "#10B981",
+    "navy":       "#172B4D",   # Primary Navy - Deep Navy
+    "blue":       "#2563EB",   # Primary Blue - Professional Blue
+    "teal":       "#14B8A6",   # Accent Teal - Medical Teal
+    "background": "#F8FAFC",   # Main Background - Soft White
+    "white":      "#FFFFFF",   # Card Background - White
+    "text":       "#172033",   # Main Text - Dark Slate
+    "muted":      "#64748B",   # Secondary Text - Slate Grey
+    "success":    "#16A34A",   # Success - Green
     "warning":    "#F59E0B",
-    "error":      "#EF4444",
-    "border":     "#E2E8F0",
+    "error":      "#DC2626",   # Error - Red
+    "border":     "#E2E8F0",   # Border - Light Grey
     "card_bg":    "#FFFFFF",
+    "bg_secondary": "#F1F5F9", # Secondary Background - Light Grey
 }
 
 # ─── File & Upload Constraints ────────────────────────────────────────────────
