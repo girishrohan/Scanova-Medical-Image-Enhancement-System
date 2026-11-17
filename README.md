@@ -46,39 +46,24 @@ Noise Reduction → Contrast Enhancement → Edge Enhancement → Output
 
 ---
 
-## Deployment (Streamlit Cloud)
+## Deployment
 
-### Option 1: Deploy via Streamlit Community Cloud (Recommended)
+### Vercel (web application)
 
-1. Visit [share.streamlit.io](https://share.streamlit.io/)
-2. Sign in with your GitHub account
-3. Click **"New app"**
-4. Configure:
-   - **GitHub repo**: `girishrohan/Scanova-Medical-Image-Enhancement-System`
-   - **Branch**: `main`
-   - **Main file path**: `app.py`
-5. Click **"Deploy"**
+The repository now includes a Next.js App Router application for Vercel. Import this repository into Vercel and deploy with the root directory set to the repository root. Vercel will detect Next.js from `package.json` and build the web interface. Do not configure `app.py` as a Python Function entrypoint: it is the legacy Streamlit app, which requires a persistent Streamlit server and is not a Vercel Function.
 
-The app will be built and deployed automatically. The URL will be:
-`https://scanova-medical-image-enhancement-system.streamlit.app`
+The Vercel web application processes supported raster images in the browser; uploaded files are not sent to a server. It supports PNG, JPG/JPEG, BMP, and WebP. DICOM remains available only in the legacy Streamlit application.
 
-### Option 2: Local Installation
+### Legacy Streamlit application
+
+To run the original Python application locally or on Streamlit Community Cloud, use `app.py` as the Streamlit entrypoint:
 
 ```bash
-# Clone / navigate to project
-cd "cgip medical image enhancement"
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Generate demo images
-python data/generate_samples.py
-
-# Launch application
 streamlit run app.py
 ```
 
-The app opens at `http://localhost:8501`.
+The local Streamlit app opens at `http://localhost:8501`.
 
 ---
 

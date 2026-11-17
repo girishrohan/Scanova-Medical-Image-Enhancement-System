@@ -44,6 +44,15 @@ venv.bak/
 .coverage
 htmlcov/
 
+# Next.js
+node_modules/
+.next/
+out/
+
+# Keep the browser image-processing module (the Python build output rule above ignores lib/).
+!/lib/
+!/lib/image-processing.ts
+
 # OS
 .DS_Store
 Thumbs.db
