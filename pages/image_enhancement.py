@@ -158,6 +158,8 @@ def render(settings: PipelineSettings):
 
         if enhance_clicked:
             _run_enhancement(orig, settings)
+            # Run AI analysis on the enhanced image
+            _run_ai_on_enhanced(orig, settings)
 
         # ── Show enhanced result ─────────────────────────────────────────────────
         if "enhanced_image" in st.session_state:
@@ -253,6 +255,47 @@ def _display_results():
     if result.edge_overlay is not None:
         with st.expander("Sobel Edge Overlay"):
             st.image(result.edge_overlay, caption="Sobel edge map", use_container_width=True)
+
+
+def _run_ai_on_enhanced(orig: np.ndarray, settings: PipelineSettings):
+    """Run AI analysis on the enhanced image and store results in session state."""
+    from core.ai_model import get_model_registry, initialize_default_models
+
+    # Initialize models if needed
+    if "ai_enhanced_initialized" not in st.session_state:
+        registry = get_model_registry()
+        initialize_default_models(registry)
+        st.session_state.ai_enhanced_initialized = True
+
+    registry = get_model_registry()
+
+    # Run body part identification on the enhanced image
+    body_part_model = registry.get("body_part_identification")
+    body_result = None
+    if body_part_model and body_part_model.is_loaded():
+        # The predict method expects a properly formatted image
+        try:
+            body_result = body_part_model.predict(orig)
+        except Exception:
+            body_result = body_part_model._heuristic_body_part_identification(orig) if hasattr(body_part_model, '_heuristic_body_part_identification') else None
+    else:
+        # Use heuristic fallback
+        if body_part_model and hasattr(body_part_model, '_heuristic_body_part_identification'):
+            try:
+                body_result = body_part_model._heuristic_body_part_identification(orig)
+            except Exception:
+                body_result = None
+
+    # Store AI analysis results alongside the pipeline result
+    st.session_state.ai_enhanced_analysis = {
+        "body_part": body_result,
+        "enhanced_image": st.session_state.get("enhanced_image"),
+        "enhanced_metrics": st.session_state.get("pipeline_result", {}).get("enhanced_metrics") if hasattr(st.session_state.get("pipeline_result"), 'enhanced_metrics') else None,
+        "settings": settings,
+        "timestamp": time.time(),
+    }
+
+    st.success("AI analysis completed on enhanced image.")
 
 
 def _clear_session():

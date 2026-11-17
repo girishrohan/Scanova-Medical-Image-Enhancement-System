@@ -318,7 +318,7 @@ st.markdown(
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 def _render_sidebar() -> tuple[str, PipelineSettings]:
     with st.sidebar:
-        # Brand
+        # Brand header
         st.markdown(
             f"""
             <div style="text-align:center; padding:1.5rem 0 0.75rem;">
@@ -334,29 +334,86 @@ def _render_sidebar() -> tuple[str, PipelineSettings]:
 
         st.markdown("---")
 
-        # Navigation
+        # Navigation - refined navy sidebar menu
         st.markdown(
             "<div style='font-size:0.7rem;font-weight:700;color:#CBD5E1;"
             "letter-spacing:0.1em;text-transform:uppercase;margin:0.5rem 0 0.75rem;'>"
             "Navigation</div>",
             unsafe_allow_html=True,
         )
+
+        # Use a clean horizontal layout with icons for navigation
         pages = [
-            ("Home",),
-            ("Image Enhancement",),
-            ("Image Comparison",),
-            ("Histogram Analysis",),
-            ("Image Information",),
-            ("About Project",),
+            ("Home", "🏠"),
+            ("Image Enhancement", "🔬"),
+            ("Image Comparison", "⚖️"),
+            ("Histogram Analysis", "📊"),
+            ("Image Information", "ℹ️"),
+            ("About Project", "📑"),
         ]
-        page_labels = [name[0] for name in pages]
-        selected_label = st.radio(
-            "navigation",
-            options=page_labels,
-            label_visibility="collapsed",
-            key="page_radio",
-        )
-        page_name = selected_label
+
+        # Horizontal nav using columns for a modern look
+        nav_pages = [
+            ("Home", "🏠"),
+            ("Dashboard", "📊"),
+            ("Image Enhancement", "🔬"),
+            ("Image Comparison", "⚖️"),
+            ("Histogram Analysis", "📊"),
+            ("Image Information", "ℹ️"),
+            ("AI Analysis", "🤖"),
+            ("About Project", "📑"),
+        ]
+        nav_cols = st.columns(len(nav_pages))
+        for col, (page_name, icon) in zip(nav_cols, nav_pages):
+            # Determine active state
+            is_active = st.session_state.get("page_radio") == page_name
+            col.markdown(
+                f"""
+                <div style="
+                    text-align: center;
+                    padding: 0.5rem 0.25rem;
+                    {
+                        'background: linear-gradient(135deg, {COLORS[\"blue\"]}, {COLORS[\"teal\"]});'
+                        if is_active else
+                        'background: rgba(255,255,255,0.08);'
+                    }
+                    border-radius: 10px;
+                    margin: 0.25rem 0;
+                    transition: all 0.15s ease;
+                    backdrop-filter: blur(8px);
+                ">
+                    <div style="
+                        font-size: 1.2rem;
+                        margin-bottom: 0.25rem;
+                        color: {
+                            'white' if is_active else '#CBD5E1'
+                        }
+                    ">
+                        {icon}
+                    </div>
+                    <div style="
+                        font-size: 0.72rem;
+                        font-weight: 600;
+                        color: {
+                            'white' if is_active else '#CBD5E1'
+                        }
+                    ">
+                        {page_name}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            # Click handler - use on_click pattern
+            col.button(
+                f"nav_{page_name}",
+                label=f"_{page_name}_nav",
+                key=f"nav_btn_{page_name}",
+                on_click=lambda p=page_name: st.session_state.update({"page_radio": p}),
+                use_container_width=True,
+                type="secondary" if not is_active else "primary",
+            )
 
         st.markdown("---")
 
@@ -485,111 +542,127 @@ def _render_sidebar() -> tuple[str, PipelineSettings]:
 
 # ── Home page ─────────────────────────────────────────────────────────────────
 def _render_home():
-    """Render the professional home page with modern aesthetic."""
+    """Render the premium healthcare homepage with modern aesthetic."""
 
-    # Hero section - clean, professional
+    # ── Hero section ──────────────────────────────────────────────────────────
     st.markdown(
         f"""
         <div style="
-            background: linear-gradient(135deg, {COLORS['navy']} 0%, #1e3a5f 40%, #2563EB 100%);
-            border-radius: 20px;
-            padding: 3.5rem 2.5rem;
-            margin-bottom: 2.5rem;
-            box-shadow: 0 20px 60px rgba(23, 43, 77, 0.3);
-            color: white;
+            background: linear-gradient(135deg, {COLORS['navy']} 0%, {COLORS['navy_light']} 100%);
+            border-radius: 24px;
+            padding: 4rem 2.5rem;
+            margin-bottom: 3rem;
+            box-shadow: 0 30px 80px rgba(23, 43, 77, 0.35);
+            position: relative;
+            overflow: hidden;
         ">
-            <div style="display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
+            <!-- Decorative accent bar -->
+            <div style="
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 60px;
+                height: 4px;
+                background: linear-gradient(90deg, {COLORS['teal']}, transparent);
+            "></div>
+            <div style="position: relative; z-index: 1;">
                 <div style="
-                    width: 120px;
-                    height: 120px;
-                    background: rgba(255,255,255,0.1);
+                    width: 140px;
+                    height: 140px;
+                    background: rgba(255, 255, 255, 0.1);
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 4rem;
-                    backdrop-filter: blur(10px);
+                    font-size: 4.5rem;
+                    margin-bottom: 1.5rem;
+                    backdrop-filter: blur(12px);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
                 ">
                     🩻
                 </div>
-                <div style="flex: 1; min-width: 300px;">
-                    <h1 style="
-                        color: white;
-                        margin: 0 0 0.5rem 0;
-                        font-size: 2.8rem;
-                        font-weight: 800;
-                        letter-spacing: -0.02em;
-                        line-height: 1.2;
-                    ">SCANOVA</h1>
-                    <p style="
-                        color: #CBD5E1;
-                        margin: 0 0 1rem 0;
-                        font-size: 1.1rem;
-                        font-style: italic;
-                        opacity: 0.95;
-                        max-width: 550px;
-                    ">
-                        A Clearer View of Every Scan.
-                    </p>
-                    <p style="
-                        color: #94A3B8;
-                        margin: 0;
-                        font-size: 0.95rem;
-                        line-height: 1.6;
-                        max-width: 550px;
-                    ">
-                        A Computer Graphics & Image Processing project demonstrating real digital image enhancement algorithms on medical imaging modalities.
-                    </p>
-                </div>
+                <h1 style="
+                    color: white;
+                    margin: 0 0 0.75rem 0;
+                    font-size: 3.2rem;
+                    font-weight: 900;
+                    letter-spacing: -0.03em;
+                    line-height: 1.1;
+                    font-family: 'Inter', sans-serif;
+                ">SCANOVA</h1>
+                <p style="
+                    color: #CBD5E1;
+                    margin: 0 0 1.5rem 0;
+                    font-size: 1.25rem;
+                    font-style: italic;
+                    line-height: 1.6;
+                    max-width: 600px;
+                ">
+                    A Clearer View of Every Scan.
+                </p>
+                <p style="
+                    color: #94A3B8;
+                    margin: 0;
+                    font-size: 1rem;
+                    line-height: 1.8;
+                    max-width: 600px;
+                ">
+                    Premium Medical Image Enhancement System · Educational Demonstration
+                </p>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # Features section - clean cards
+    # ── Features grid ─────────────────────────────────────────────────────────
+    st.markdown("### Features")
+
     features = [
-        ("🔬", "Real Algorithms",
-         "Median/Gaussian filtering, CLAHE, Unsharp Masking using OpenCV."),
-        ("📊", "Histogram Analysis",
-         "Interactive Plotly histograms and CDF comparison from actual pixel data."),
-        ("⚖️", "Before / After",
-         "Side-by-side comparison with quantitative quality metrics."),
-        ("🏥", "DICOM Support",
-         "Load DICOM files with Hounsfield Unit windowing and modality handling."),
-        ("📑", "PDF Report",
-         "Generate academic ReportLab PDF with parameters, metrics, and images."),
-        ("🎓", "Viva Ready",
-         "12+ viva Q&A, algorithm explanations, pseudocode, and documentation."),
+        ("🔬", "Real Image Processing Algorithms",
+         "Median/Gaussian filtering, CLAHE contrast enhancement, Unsharp masking — all using validated OpenCV implementations applied to medical imaging contexts."),
+        ("📊", "Interactive Histogram Analysis",
+         "Plotly-powered histograms and cumulative distribution functions from actual pixel data with before/after comparison."),
+        ("⚖️", "Before / After Comparison",
+         "Side-by-side visualization with quantitative metric deltas (entropy, Laplacian variance, contrast, intensity range)."),
+        ("🏥", "DICOM Modality Support",
+         "Load DICOM files with Hounsfield Unit windowing, rescale slope/intercept, MONOCHROME1/2 inversion, and multi-frame handling."),
+        ("📑", "Professional PDF Reports",
+         "Generate structured academic reports with ReportLab covering processing parameters, quality metrics, algorithms applied, and images — with formal disclaimer."),
+        ("🎓", "Viva Preparation & Documentation",
+         "12+ viva questions with detailed answers, algorithm pseudocode, system architecture diagrams, and project limitations documentation."),
     ]
 
-    cols = st.columns(3, gap="medium")
+    cols = st.columns(2, gap="lg")
     for i, (icon, title, desc) in enumerate(features):
-        with cols[i % 3]:
+        with cols[i % 2]:
             st.markdown(
                 f"""
                 <div style="
                     background: white;
                     border: 1px solid {COLORS['border']};
-                    border-radius: 12px;
-                    padding: 1.5rem;
-                    margin-bottom: 1rem;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
-                    transition: all 0.15s ease;
+                    border-radius: 16px;
+                    padding: 2rem;
+                    margin-bottom: 1.5rem;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+                    transition: all 0.2s ease;
+                    backdrop-filter: blur(8px);
                 ">
-                    <div style="font-size: 2rem; margin-bottom: 0.7rem;">{icon}</div>
                     <div style="
-                        font-weight: 700;
-                        color: {COLORS['navy']};
-                        margin-bottom: 0.5rem;
-                        font-size: 1rem;
+                        font-size: 2.2rem;
+                        margin-bottom: 1.25rem;
+                        background: linear-gradient(135deg, {COLORS['blue']}, {COLORS['teal']});
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                        background-clip: text;
                     ">
-                        {title}
+                        {icon} {title}
                     </div>
                     <div style="
                         color: {COLORS['muted']};
-                        font-size: 0.85rem;
-                        line-height: 1.5;
+                        font-size: 0.95rem;
+                        line-height: 1.7;
+                        margin-top: 0.75rem;
                     ">
                         {desc}
                     </div>
@@ -598,63 +671,67 @@ def _render_home():
                 unsafe_allow_html=True,
             )
 
-    # Pipeline overview - clean step indicators
+    # ── Pipeline overview ────────────────────────────────────────────────────
     st.markdown("---")
-    st.markdown("### Enhancement Pipeline")
     st.markdown(
-        f"<p style='color: {COLORS['muted']}; font-size: 0.95rem; margin-bottom: 1.5rem;'>"
-        "Follow the stages below to enhance your medical images.</p>",
+        f"<p style='color: {COLORS['muted']}; font-size: 0.95rem; margin-bottom: 1.75rem;'>"
+        "Our six-stage enhancement pipeline, refined for medical image quality.</p>",
         unsafe_allow_html=True,
     )
 
     stages = [
-        ("1", "Acquisition", "Load & validate"),
-        ("2", "Grayscale", "Smart conversion"),
-        ("3", "Denoise", "Median / Gaussian"),
-        ("4", "Contrast", "CLAHE / HE"),
-        ("5", "Sharpen", "Unsharp masking"),
-        ("6", "Output", "Download & compare"),
+        ("1", "Acquisition", "Load & validate image format, size, and DICOM metadata"),
+        ("2", "Grayscale", "Smart color-to-grayscale conversion preserving luminance"),
+        ("3", "Denoise", "Median or Gaussian filtering — impulse vs. electronic noise"),
+        ("4", "Contrast", "CLAHE adaptive histogram equalization with clip limit"),
+        ("5", "Sharpen", "Unsharp masking with controllable α and σ parameters"),
+        ("6", "Output", "Download enhanced image, metrics, and PDF report"),
     ]
     pcols = st.columns(6, gap="small")
     for col, (num, title, sub) in zip(pcols, stages):
         with col:
+            # Color code: blue for technical, teal for clinical
+            stage_color = COLORS['blue'] if num in ("1", "2", "6") else COLORS['teal']
             st.markdown(
                 f"""
                 <div style="
                     text-align: center;
                     background: white;
-                    border-radius: 12px;
-                    padding: 1rem 0.5rem;
+                    border-radius: 14px;
+                    padding: 1.25rem 0.75rem;
                     border: 1px solid {COLORS['border']};
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+                    transition: all 0.2s ease;
                 ">
                     <div style="
-                        background: linear-gradient(135deg, {COLORS['blue']}, {COLORS['teal']});
+                        background: linear-gradient(135deg, {stage_color}, {stage_color});
                         color: white;
                         border-radius: 50%;
-                        width: 36px;
-                        height: 36px;
+                        width: 42px;
+                        height: 42px;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        font-weight: 700;
-                        font-size: 0.95rem;
-                        margin: 0 auto 8px;
+                        font-weight: 800;
+                        font-size: 1.25rem;
+                        margin: 0 auto 10px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
                     ">
                         {num}
                     </div>
                     <div style="
                         font-weight: 700;
                         color: {COLORS['navy']};
-                        font-size: 0.8rem;
+                        font-size: 0.9rem;
                         margin-bottom: 2px;
+                        letter-spacing: -0.01em;
                     ">
                         {title}
                     </div>
                     <div style="
                         color: {COLORS['muted']};
-                        font-size: 0.7rem;
-                        margin-top: 2px;
+                        font-size: 0.75rem;
+                        line-height: 1.4;
                     ">
                         {sub}
                     </div>
@@ -663,46 +740,68 @@ def _render_home():
                 unsafe_allow_html=True,
             )
 
-    # CTA section - clean and prominent
+    # ── CTA / Call to Action ──────────────────────────────────────────────────
     st.markdown("---")
     st.markdown(
         f"""
         <div style="
             text-align: center;
-            padding: 2.5rem 1.5rem;
-            background: {COLORS['bg_secondary']};
-            border-radius: 16px;
+            padding: 3rem 2rem;
+            background: linear-gradient(135deg, {COLORS['bg_secondary']}, white);
+            border-radius: 20px;
             border: 1px solid {COLORS['border']};
-            margin-top: 1.5rem;
+            margin-top: 2.5rem;
+            position: relative;
+            overflow: hidden;
         ">
             <div style="
-                font-size: 1.2rem;
-                font-weight: 700;
-                color: {COLORS['navy']};
-                margin-bottom: 0.75rem;
-            ">
-                Ready to enhance your medical images?
-            </div>
-            <div style="
-                color: {COLORS['muted']};
-                font-size: 0.95rem;
-                max-width: 450px;
-                margin: 0 auto;
-            ">
-                Select <strong>Image Enhancement</strong> from the sidebar to begin processing.
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 80px;
+                height: 80px;
+                background: radial-gradient(circle, {COLORS['teal']} 0%, transparent 50%);
+                border-radius: 50%;
+                opacity: 0.4;
+            "></div>
+            <div style="position: relative; z-index: 1;">
+                <h2 style="
+                    color: {COLORS['navy']};
+                    font-size: 1.75rem;
+                    font-weight: 800;
+                    margin: 0 0 1rem 0;
+                    letter-spacing: -0.02em;
+                ">
+                    Ready to Enhance Your Images?
+                </h2>
+                <p style="
+                    color: {COLORS['muted']};
+                    font-size: 1.05rem;
+                    max-width: 550px;
+                    margin: 0 auto;
+                    line-height: 1.8;
+                ">
+                    Upload a medical image (X-ray, MRI, or CT scan) from the sidebar to begin.
+                    Our real image-processing pipeline will enhance clarity and reveal subtle details.
+                </p>
+                <div style="margin: 2rem auto 0; max-width: 350px;">
+                    <stButton label="Start Enhancement", type="primary", use_container_width=True, key="home_enhance_btn"/>
+                </div>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # Disclaimer
+    # ── Disclaimer (prominent but secondary) ──────────────────────────────────
     st.markdown("---")
-    st.warning(DISCLAIMER, icon="⚠️")
+    st.caption(
+        f"⚠️  {DISCLAIMER}"
+    )
 
-    # Sample images preview
-    st.markdown("### Available Demo Images")
-    sample_cols = st.columns(3, gap="medium")
+    # ── Sample images preview ─────────────────────────────────────────────────
+    st.markdown("### Demo Images")
+    sample_cols = st.columns(3, gap="lg")
     sample_paths = {
         name: os.path.join(SAMPLE_IMAGE_DIR, fname)
         for name, fname in SAMPLE_IMAGES.items()
@@ -712,7 +811,7 @@ def _render_home():
             if os.path.exists(path):
                 from PIL import Image as PILImage
                 img = PILImage.open(path)
-                st.image(img, caption=f"{name} (synthetic demo)", use_container_width=True)
+                st.image(img, caption=f"{name}", use_container_width=True)
             else:
                 st.info(f"{name}: run `python data/generate_samples.py` to create samples.")
 
@@ -754,10 +853,39 @@ def _pdf_section():
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
-    page, settings = _render_sidebar()
+    # Initialize session state for authentication
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+    if "page_radio" not in st.session_state:
+        st.session_state["page_radio"] = "Home"
+
+    # Handle Login page (no sidebar, no auth required)
+    if st.session_state.get("page_radio") == "Login":
+        from pages.login import render as render_login
+        render_login()
+        return
+
+    # Check authentication for all other pages except Home
+    if st.session_state.get("page_radio") not in ["Home", "Login"]:
+        if not st.session_state.get("authenticated", False):
+            st.session_state["page_radio"] = "Login"
+            st.rerun()
+            return
+
+    # Render sidebar for authenticated pages and Home
+    if st.session_state.get("page_radio") != "Login":
+        page, settings = _render_sidebar()
+    else:
+        # This won't be reached due to early return above
+        page = "Login"
+        settings = None
 
     if page == "Home":
         _render_home()
+
+    elif page == "Dashboard":
+        from pages.dashboard import render as render_dashboard
+        render_dashboard()
 
     elif page == "Image Enhancement":
         from pages.image_enhancement import render as render_enhance
@@ -779,6 +907,14 @@ def main():
     elif page == "About Project":
         from pages.about_project import render as render_about
         render_about()
+
+    elif page == "AI Analysis":
+        from pages.ai_analysis_dashboard import render as render_ai
+        render_ai()
+
+    elif page == "Dashboard":
+        from pages.dashboard import render as render_dashboard
+        render_dashboard()
 
     # Footer
     st.markdown(
