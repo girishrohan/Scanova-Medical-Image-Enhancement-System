@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import io
 import os
+import time
 
 import numpy as np
 import streamlit as st
