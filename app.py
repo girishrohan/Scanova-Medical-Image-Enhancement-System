@@ -1,934 +1,315 @@
 """
-app.py — Scanova Medical Image Enhancement System
-──────────────────────────────────────────────────
-Main Streamlit entrypoint.
-
-Run with:
-    python -m streamlit run app.py
+SCANOVA — Medical Image Enhancement System
+Main application entry point with unified multi-view workspace.
 """
-
-from __future__ import annotations
-
-import os
-import sys
 
 import streamlit as st
 
-# ── Path setup so modules can be imported from project root ───────────────────
-ROOT = os.path.dirname(os.path.abspath(__file__))
-if ROOT not in sys.path:
-    sys.path.insert(0, ROOT)
+# ─── Page Configuration ────────────────────────────────────────────────────────
 
-from config import (
-    APP_NAME, APP_TAGLINE, APP_VERSION, COLORS,
-    DEFAULT_SETTINGS, PARAM_BOUNDS, DISCLAIMER,
-    SAMPLE_IMAGES, SAMPLE_IMAGE_DIR,
-)
-from services.image_processing_service import PipelineSettings
-
-# ── Page configuration ─────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title=f"{APP_NAME} — Medical Image Enhancement",
+    page_title="SCANOVA — Medical Image Enhancement",
     page_icon="🩻",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        "About": (
-            f"**{APP_NAME}** – {APP_TAGLINE}  \n"
-            "CGIP Mini Project · Computer Science & Engineering  \n"
-            "Educational use only. Not a diagnostic tool."
-        ),
+        "Get Help": None,
+        "Report a bug": None,
+        "About": "SCANOVA v1.0.0 — Medical Image Enhancement System for Educational Purposes",
     },
 )
 
-# ── Custom CSS ────────────────────────────────────────────────────────────────
+# ─── Custom CSS ────────────────────────────────────────────────────────────────
+
 st.markdown(
-    f"""
+    """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    /* Premium medical technology theme — matching SCANOVA branding */
+    :root {
+        --navy: #0F2C4D;
+        --blue: #1E40AF;
+        --teal: #0D9488;
+        --success: #16A34A;
+        --warning: #F59E0B;
+        --error: #DC2626;
+        --bg: #F8FAFC;
+        --surface: #FFFFFF;
+        --text: #0F172A;
+        --muted: #475569;
+        --border: #E2E8F0;
+    }
 
-    /* Root variables - matching design brief exactly */
-    :root {{
-        --navy:  {COLORS['navy']};
-        --blue:  {COLORS['blue']};
-        --teal:  {COLORS['teal']};
-        --bg:    {COLORS['background']};
-        --text:  {COLORS['text']};
-        --muted: {COLORS['muted']};
-        --border: {COLORS['border']};
+    /* Global styles */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
 
-        /* Typography scale */
-        --font-size-xs: 0.75rem;
-        --font-size-sm: 0.875rem;
-        --font-size-base: 1rem;
-        --font-size-md: 1.125rem;
-        --font-size-lg: 1.25rem;
-        --font-size-xl: 1.5rem;
-        --font-size-2xl: 1.75rem;
-        --font-size-3xl: 2rem;
-        --font-size-4xl: 2.5rem;
-        --font-size-5xl: 3rem;
-    }}
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0F2C4D 0%, #1E3A5F 100%);
+    }
 
-    /* ── Global ─────────────────────────────────────────────────────── */
-    html, body, [class*="css"] {{
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        background-color: var(--bg);
-        color: var(--text);
-        font-size: 16px;
-        line-height: 1.6;
-    }}
+    section[data-testid="stSidebar"] * {
+        color: white !important;
+    }
 
-    /* Clean app background - flat, professional */
-    .stApp {{
-        background: var(--bg);
-        min-height: 100vh;
-    }}
-
-    /* ── Main content area ───────────────────────────────────────────── */
-    .main .block-container {{
-        padding-top: 1.5rem;
-        padding-bottom: 3rem;
-        max-width: 1280px;
-    }}
-
-    /* ── Sidebar - sleek navy sidebar per design brief */
-    section[data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, var(--navy) 0%, #1e3a5f 100%);
-        border-right: none;
-        box-shadow: 4px 0 20px rgba(0,0,0,0.12);
-        min-width: 280px;
-    }}
-    section[data-testid="stSidebar"] * {{
-        color: #E2E8F0 !important;
-    }}
-    section[data-testid="stSidebar"] .stSelectbox label,
-    section[data-testid="stSidebar"] .stSlider label,
-    section[data-testid="stSidebar"] .stCheckbox label,
-    section[data-testid="stSidebar"] .stRadio label {{
-        color: #CBD5E1 !important;
-        font-size: 0.82rem;
+    /* Button styles */
+    .stButton > button {
+        border-radius: 8px;
         font-weight: 500;
-        letter-spacing: 0.02em;
-    }}
-    section[data-testid="stSidebar"] .stSelectbox > div > div {{
-        background: rgba(255,255,255,0.1);
-        border: 1px solid rgba(255,255,255,0.2);
-        color: white !important;
-        border-radius: 8px;
-    }}
-    section[data-testid="stSidebar"] hr {{
-        border-color: rgba(255,255,255,0.15) !important;
-    }}
-    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {{
-        color: #94A3B8 !important;
-        font-size: 0.78rem;
-    }}
+        transition: all 0.2s;
+    }
 
-    /* ── Primary buttons - refined per design brief */
-    .stButton > button[kind="primary"] {{
-        background: var(--blue);
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #1E40AF, #1D4ED8);
         border: none;
-        color: white;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 0.9rem;
-        padding: 0.75rem 1.5rem;
-        transition: all 0.15s ease;
-        box-shadow: 0 4px 12px rgba(37,99,235,0.35);
-    }}
-    .stButton > button[kind="primary"]:hover {{
-        transform: translateY(-1px);
-        box-shadow: 0 6px 18px rgba(37,99,235,0.45);
-    }}
-    .stButton > button[kind="secondary"] {{
+    }
+
+    .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #1D4ED8, #2563EB);
+        box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+    }
+
+    /* Metric cards */
+    [data-testid="stMetric"] {
         background: white;
-        border: 1.5px solid var(--border);
-        color: var(--navy);
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 0.9rem;
-        transition: all 0.15s ease;
-    }}
-    .stButton > button[kind="secondary"]:hover {{
-        border-color: var(--blue);
-        color: var(--blue);
-        box-shadow: 0 2px 8px rgba(37,99,235,0.2);
-    }}
-
-    /* ── Download button - teal for secondary action */
-    .stDownloadButton > button {{
-        background: var(--teal);
-        border: none;
-        color: white;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 0.9rem;
-        padding: 0.75rem 1.5rem;
-        transition: all 0.15s ease;
-        box-shadow: 0 4px 12px rgba(20,184,166,0.35);
-    }}
-    .stDownloadButton > button:hover {{
-        transform: translateY(-1px);
-        box-shadow: 0 6px 18px rgba(20,184,166,0.45);
-    }}
-
-    /* ── Metric cards - refined with subtle shadow */
-    [data-testid="stMetric"] {{
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 1.25rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        transition: box-shadow 0.15s;
-    }}
-    [data-testid="stMetric"]:hover {{
-        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-    }}
-    [data-testid="stMetricLabel"] p {{
-        color: #64748B;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-    }}
-    [data-testid="stMetricValue"] {{
-        color: var(--navy);
-        font-weight: 700;
-        font-size: 1.5rem;
-    }}
-
-    /* ── Tabs - clean with subtle borders */
-    .stTabs [data-baseweb="tab-list"] {{
-        background: white;
-        border-radius: 10px;
-        padding: 6px;
-        gap: 4px;
-        border: 1px solid var(--border);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    }}
-    .stTabs [data-baseweb="tab"] {{
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 0.85rem;
-        color: #64748B;
-        padding: 8px 16px;
-    }}
-    .stTabs [aria-selected="true"] {{
-        background: linear-gradient(135deg, var(--blue), #1d4ed8);
-        color: white !important;
-    }}
-
-    /* ── Expander - clean and consistent */
-    .streamlit-expanderHeader {{
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        font-weight: 600;
-        color: var(--navy);
-        padding: 0.75rem 1rem;
-    }}
-    .streamlit-expanderContent {{
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-top: none;
-        border-radius: 0 0 10px 10px;
-        padding: 1rem;
-    }}
-
-    /* ── File uploader - clean dashed border */
-    [data-testid="stFileUploaderDropzone"] {{
-        background: linear-gradient(135deg, #EFF6FF, #F0F9FF);
-        border: 2px dashed var(--blue);
+        border: 1px solid #E2E8F0;
         border-radius: 12px;
-        transition: all 0.15s ease;
-    }}
-    [data-testid="stFileUploaderDropzone"]:hover {{
-        border-color: var(--teal);
-        background: linear-gradient(135deg, #F0FDF4, #ECFDF5);
-    }}
+        padding: 1rem;
+    }
 
-    /* ── Info / Warning / Success boxes - proper left border colors */
-    .stAlert {{
-        border-radius: 10px;
-        border-left-width: 4px;
-    }}
-    .stAlert[data-baseweb="alert"]:has(.css-1v7q57l) {{
-        border-left-color: var(--error);
-    }}
-    .stAlert[data-baseweb="alert"]:has(.css-1v7q57l) {{
-        border-left-color: #16A34A;
-    }}
+    /* Expander */
+    .streamlit-expanderHeader {
+        background: #F8FAFC;
+        border-radius: 8px;
+        border: 1px solid #E2E8F0;
+    }
 
-    /* ── Images - clean with subtle border */
-    [data-testid="stImage"] img {{
-        border-radius: 10px;
-        border: 1px solid var(--border);
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    }}
+    /* File uploader */
+    .stFileUploader > div > div {
+        border: 2px dashed #CBD5E1;
+        border-radius: 12px;
+    }
 
-    /* ── Dividers - clean subtle line */
-    hr {{
-        border-color: var(--border);
-        margin: 2rem 0;
-    }}
+    .stFileUploader > div > div:hover {
+        border-color: #14B8A6;
+        background: #ECFDF5;
+    }
 
-    /* ── Heading colours - consistent dark navy */
-    h1, h2, h3, h4, h5, h6 {{
-        color: var(--navy);
-        font-weight: 700;
-        line-height: 1.3;
-    }}
-    h1 {{ font-size: 2.5rem; }}
-    h2 {{ font-size: 1.75rem; }}
-    h3 {{ font-size: 1.25rem; }}
-    h4 {{ font-size: 1.125rem; }}
+    /* Hide default streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
 
-    /* ── Progress bar - clean gradient */
-    .stProgress > div > div > div {{
-        background: linear-gradient(90deg, var(--blue), var(--teal));
-        border-radius: 99px;
-    }}
-
-    /* ── Spinner - brand color */
-    .stSpinner > div {{
-        border-top-color: var(--blue) !important;
-    }}
-
-    /* ── Code blocks - consistent style */
-    code, pre {{
-        font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
-        font-size: 0.875rem;
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    ::-webkit-scrollbar-track {
         background: #F1F5F9;
-        border-radius: 6px;
-        padding: 0.25rem 0.5rem;
-    }}
-
-    /* ── Tables - clean grid */
-    table {{
-        border-collapse: separate;
-        border-spacing: 0;
-    }}
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #94A3B8;
+        border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #64748B;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+# ─── Session State Initialization ─────────────────────────────────────────────
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-def _render_sidebar() -> tuple[str, PipelineSettings]:
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if "page_radio" not in st.session_state:
+    st.session_state["page_radio"] = "Dashboard"
+
+if "username" not in st.session_state:
+    st.session_state["username"] = "User"
+
+# ─── Page Imports ─────────────────────────────────────────────────────────────
+
+from pages.login import render as render_login, check_auth, logout
+from pages.dashboard import render as render_dashboard
+from pages.image_enhancement import render as render_enhancement
+from pages.image_comparison import render as render_comparison
+from pages.ai_analysis_dashboard import render as render_ai_analysis
+from pages.histogram_analysis import render as render_histogram
+from pages.image_information import render as render_image_info
+from pages.about_project import render as render_about
+from pages.xray_mirror import render as render_xray
+from components.dashboard_workspace import render_dashboard_workspace
+
+from config import APP_NAME, APP_VERSION, COLORS, DISCLAIMER
+
+
+# ─── Navigation Configuration ──────────────────────────────────────────────────
+
+PAGES = {
+    "Home": {
+        "icon": "🏠",
+        "render": render_dashboard,
+        "requires_auth": True,
+    },
+    "Image Enhancement": {
+        "icon": "🔬",
+        "render": render_enhancement,
+        "requires_auth": True,
+    },
+    "AI Analysis": {
+        "icon": "🤖",
+        "render": render_ai_analysis,
+        "requires_auth": True,
+    },
+    "Comparison": {
+        "icon": "⚖️",
+        "render": render_comparison,
+        "requires_auth": True,
+    },
+    "Unified Workspace": {
+        "icon": "🪟",
+        "render": render_dashboard_workspace,
+        "requires_auth": True,
+    },
+    "Histogram Analysis": {
+        "icon": "📊",
+        "render": render_histogram,
+        "requires_auth": True,
+    },
+    "Image Information": {
+        "icon": "ℹ️",
+        "render": render_image_info,
+        "requires_auth": True,
+    },
+    "X-Ray Mirror": {
+        "icon": "🪟",
+        "render": render_xray,
+        "requires_auth": True,
+    },
+    "About": {
+        "icon": "ℹ️",
+        "render": render_about,
+        "requires_auth": False,
+    },
+}
+
+
+# ─── Sidebar Navigation ────────────────────────────────────────────────────────
+
+def render_sidebar():
+    """Render the sidebar navigation."""
     with st.sidebar:
-        # Brand header
+        # Logo
         st.markdown(
             f"""
-            <div style="text-align:center; padding:1.5rem 0 0.75rem;">
-                <div style="font-size:3rem; margin-bottom:0.5rem;">🩻</div>
-                <div style="font-size:1.6rem; font-weight:800; color:#FFFFFF;
-                            letter-spacing:0.04em;">SCANOVA</div>
-                <div style="font-size:0.78rem; color:#94A3B8; margin-top:2px;
-                            letter-spacing:0.08em;">A Clearer View of Every Scan.</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown("---")
-
-        # Navigation - refined navy sidebar menu
-        st.markdown(
-            "<div style='font-size:0.7rem;font-weight:700;color:#CBD5E1;"
-            "letter-spacing:0.1em;text-transform:uppercase;margin:0.5rem 0 0.75rem;'>"
-            "Navigation</div>",
-            unsafe_allow_html=True,
-        )
-
-        # Use a clean horizontal layout with icons for navigation
-        pages = [
-            ("Home", "🏠"),
-            ("Image Enhancement", "🔬"),
-            ("Image Comparison", "⚖️"),
-            ("Histogram Analysis", "📊"),
-            ("Image Information", "ℹ️"),
-            ("About Project", "📑"),
-        ]
-
-        # Horizontal nav using columns for a modern look
-        nav_pages = [
-            ("Home", "🏠"),
-            ("Dashboard", "📊"),
-            ("Image Enhancement", "🔬"),
-            ("Image Comparison", "⚖️"),
-            ("Histogram Analysis", "📊"),
-            ("Image Information", "ℹ️"),
-            ("AI Analysis", "🤖"),
-            ("About Project", "📑"),
-        ]
-        nav_cols = st.columns(len(nav_pages))
-        for col, (page_name, icon) in zip(nav_cols, nav_pages):
-            # Determine active state
-            is_active = st.session_state.get("page_radio") == page_name
-            col.markdown(
-                f"""
+            <div style="text-align: center; padding: 1.5rem 1rem 2rem; border-bottom: 1px solid rgba(255,255,255,0.2);">
                 <div style="
-                    text-align: center;
-                    padding: 0.5rem 0.25rem;
-                    {
-                        'background: linear-gradient(135deg, {COLORS[\"blue\"]}, {COLORS[\"teal\"]});'
-                        if is_active else
-                        'background: rgba(255,255,255,0.08);'
-                    }
-                    border-radius: 10px;
-                    margin: 0.25rem 0;
-                    transition: all 0.15s ease;
-                    backdrop-filter: blur(8px);
-                ">
-                    <div style="
-                        font-size: 1.2rem;
-                        margin-bottom: 0.25rem;
-                        color: {
-                            'white' if is_active else '#CBD5E1'
-                        }
-                    ">
-                        {icon}
-                    </div>
-                    <div style="
-                        font-size: 0.72rem;
-                        font-weight: 600;
-                        color: {
-                            'white' if is_active else '#CBD5E1'
-                        }
-                    ">
-                        {page_name}
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            # Click handler - use on_click pattern
-            col.button(
-                f"nav_{page_name}",
-                label=f"_{page_name}_nav",
-                key=f"nav_btn_{page_name}",
-                on_click=lambda p=page_name: st.session_state.update({"page_radio": p}),
-                use_container_width=True,
-                type="secondary" if not is_active else "primary",
-            )
-
-        st.markdown("---")
-
-        # ── Processing Settings ────────────────────────────────────────────────
-        st.markdown(
-            "<div style='font-size:0.7rem;font-weight:700;color:#CBD5E1;"
-            "letter-spacing:0.1em;text-transform:uppercase;margin:0.5rem 0 0.75rem;'>"
-            "Enhancement Settings</div>",
-            unsafe_allow_html=True,
-        )
-
-        with st.expander("Noise Reduction", expanded=True):
-            noise_method = st.selectbox(
-                "Filter type",
-                ["Median", "Gaussian"],
-                index=0 if DEFAULT_SETTINGS["noise_method"] == "Median" else 1,
-                key="noise_method",
-            )
-            kernel_size = st.select_slider(
-                "Kernel size (must be odd)",
-                options=[3, 5, 7, 9, 11, 13, 15, 17, 19, 21],
-                value=DEFAULT_SETTINGS["kernel_size"],
-                key="kernel_size",
-            )
-            gauss_sigma = 1.0
-            if noise_method == "Gaussian":
-                gauss_sigma = st.slider(
-                    "Gaussian σ",
-                    min_value=PARAM_BOUNDS["gaussian_sigma_min"],
-                    max_value=PARAM_BOUNDS["gaussian_sigma_max"],
-                    value=DEFAULT_SETTINGS["gaussian_sigma"],
-                    step=0.1,
-                    key="gauss_sigma",
-                )
-
-        with st.expander("Contrast Enhancement", expanded=True):
-            contrast_method = st.selectbox(
-                "Method",
-                ["CLAHE", "Histogram Equalization"],
-                index=0,
-                key="contrast_method",
-            )
-            clahe_clip = DEFAULT_SETTINGS["clahe_clip_limit"]
-            clahe_tile = DEFAULT_SETTINGS["clahe_tile_grid"]
-            if contrast_method == "CLAHE":
-                clahe_clip = st.slider(
-                    "Clip limit",
-                    min_value=PARAM_BOUNDS["clahe_clip_min"],
-                    max_value=PARAM_BOUNDS["clahe_clip_max"],
-                    value=DEFAULT_SETTINGS["clahe_clip_limit"],
-                    step=0.5,
-                    key="clahe_clip",
-                )
-                clahe_tile = st.select_slider(
-                    "Tile grid size",
-                    options=[2, 4, 6, 8, 10, 12, 16, 24, 32],
-                    value=DEFAULT_SETTINGS["clahe_tile_grid"],
-                    key="clahe_tile",
-                )
-
-        with st.expander("Edge Enhancement", expanded=True):
-            sharpen_strength = st.slider(
-                "Sharpening strength (α)",
-                min_value=PARAM_BOUNDS["sharpen_min"],
-                max_value=PARAM_BOUNDS["sharpen_max"],
-                value=DEFAULT_SETTINGS["sharpen_strength"],
-                step=0.1,
-                key="sharpen_str",
-            )
-            sharpen_sigma = st.slider(
-                "Sharpen blur σ",
-                min_value=0.1,
-                max_value=3.0,
-                value=DEFAULT_SETTINGS["sharpen_sigma"],
-                step=0.1,
-                key="sharpen_sigma",
-            )
-
-        with st.expander("Advanced", expanded=False):
-            force_gray = st.checkbox(
-                "Force grayscale conversion",
-                value=DEFAULT_SETTINGS["force_grayscale"],
-                key="force_gray",
-                help="Always convert color images to grayscale before processing.",
-            )
-            show_edges = st.checkbox(
-                "Show Sobel edge overlay",
-                value=DEFAULT_SETTINGS["show_edge_overlay"],
-                key="show_edges",
-                help="Display Sobel edge map for educational visualisation.",
-            )
-
-        st.markdown("---")
-
-        # Session state indicator
-        has_orig = "original_image" in st.session_state
-        has_enh  = "enhanced_image" in st.session_state
-        st.markdown(
-            f"""
-            <div style="font-size:0.75rem; color:#94A3B8; padding:0 0.5rem;">
-                <div style="margin:2px 0;">
-                    {'✅' if has_orig else '⬜'} Image loaded
-                </div>
-                <div style="margin:2px 0;">
-                    {'✅' if has_enh else '⬜'} Enhanced
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    settings = PipelineSettings(
-        noise_method=noise_method,
-        kernel_size=int(kernel_size),
-        gaussian_sigma=float(gauss_sigma),
-        contrast_method=contrast_method,
-        clahe_clip_limit=float(clahe_clip),
-        clahe_tile_grid=int(clahe_tile),
-        sharpen_strength=float(sharpen_strength),
-        sharpen_sigma=float(sharpen_sigma),
-        force_grayscale=bool(force_gray),
-        show_edge_overlay=bool(show_edges),
-    )
-    return page_name, settings
-
-
-# ── Home page ─────────────────────────────────────────────────────────────────
-def _render_home():
-    """Render the premium healthcare homepage with modern aesthetic."""
-
-    # ── Hero section ──────────────────────────────────────────────────────────
-    st.markdown(
-        f"""
-        <div style="
-            background: linear-gradient(135deg, {COLORS['navy']} 0%, {COLORS['navy_light']} 100%);
-            border-radius: 24px;
-            padding: 4rem 2.5rem;
-            margin-bottom: 3rem;
-            box-shadow: 0 30px 80px rgba(23, 43, 77, 0.35);
-            position: relative;
-            overflow: hidden;
-        ">
-            <!-- Decorative accent bar -->
-            <div style="
-                position: absolute;
-                top: 0;
-                right: 0;
-                width: 60px;
-                height: 4px;
-                background: linear-gradient(90deg, {COLORS['teal']}, transparent);
-            "></div>
-            <div style="position: relative; z-index: 1;">
-                <div style="
-                    width: 140px;
-                    height: 140px;
-                    background: rgba(255, 255, 255, 0.1);
+                    width: 60px;
+                    height: 60px;
+                    background: linear-gradient(135deg, #14B8A6, #0D9488);
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 4.5rem;
-                    margin-bottom: 1.5rem;
-                    backdrop-filter: blur(12px);
-                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    font-size: 2rem;
+                    margin: 0 auto 1rem;
+                    box-shadow: 0 8px 24px rgba(20, 184, 166, 0.3);
                 ">
                     🩻
                 </div>
-                <h1 style="
-                    color: white;
-                    margin: 0 0 0.75rem 0;
-                    font-size: 3.2rem;
-                    font-weight: 900;
-                    letter-spacing: -0.03em;
-                    line-height: 1.1;
-                    font-family: 'Inter', sans-serif;
-                ">SCANOVA</h1>
-                <p style="
-                    color: #CBD5E1;
-                    margin: 0 0 1.5rem 0;
-                    font-size: 1.25rem;
-                    font-style: italic;
-                    line-height: 1.6;
-                    max-width: 600px;
-                ">
-                    A Clearer View of Every Scan.
-                </p>
-                <p style="
-                    color: #94A3B8;
-                    margin: 0;
-                    font-size: 1rem;
-                    line-height: 1.8;
-                    max-width: 600px;
-                ">
-                    Premium Medical Image Enhancement System · Educational Demonstration
-                </p>
+                <h2 style="margin: 0 0 0.25rem; font-weight: 800;">{APP_NAME}</h2>
+                <p style="margin: 0; opacity: 0.8; font-size: 0.85rem;">v{APP_VERSION}</p>
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            """,
+            unsafe_allow_html=True,
+        )
 
-    # ── Features grid ─────────────────────────────────────────────────────────
-    st.markdown("### Features")
+        # Navigation
+        st.markdown("### Navigation")
 
-    features = [
-        ("🔬", "Real Image Processing Algorithms",
-         "Median/Gaussian filtering, CLAHE contrast enhancement, Unsharp masking — all using validated OpenCV implementations applied to medical imaging contexts."),
-        ("📊", "Interactive Histogram Analysis",
-         "Plotly-powered histograms and cumulative distribution functions from actual pixel data with before/after comparison."),
-        ("⚖️", "Before / After Comparison",
-         "Side-by-side visualization with quantitative metric deltas (entropy, Laplacian variance, contrast, intensity range)."),
-        ("🏥", "DICOM Modality Support",
-         "Load DICOM files with Hounsfield Unit windowing, rescale slope/intercept, MONOCHROME1/2 inversion, and multi-frame handling."),
-        ("📑", "Professional PDF Reports",
-         "Generate structured academic reports with ReportLab covering processing parameters, quality metrics, algorithms applied, and images — with formal disclaimer."),
-        ("🎓", "Viva Preparation & Documentation",
-         "12+ viva questions with detailed answers, algorithm pseudocode, system architecture diagrams, and project limitations documentation."),
-    ]
+        # Filter pages based on auth
+        if st.session_state.get("authenticated", False):
+            available_pages = list(PAGES.keys())
+        else:
+            available_pages = ["About"]
 
-    cols = st.columns(2, gap="lg")
-    for i, (icon, title, desc) in enumerate(features):
-        with cols[i % 2]:
+        # Page selection
+        if "page_radio" not in st.session_state:
+            st.session_state["page_radio"] = "Dashboard" if st.session_state.get("authenticated", False) else "About"
+
+        current_page = st.session_state["page_radio"]
+        if current_page not in available_pages:
+            current_page = available_pages[0]
+
+        page_index = available_pages.index(current_page) if current_page in available_pages else 0
+
+        page_names = [f"{PAGES[p]['icon']}  {p}" for p in available_pages]
+        selected = st.radio(
+            "",
+            options=page_names,
+            index=page_index,
+            key="page_radio",
+            label_visibility="collapsed",
+        )
+
+        if selected:
+            selected_page = available_pages[page_names.index(selected)] if selected in page_names else available_pages[0]
+            st.session_state["page_radio"] = selected_page
+
+        # User info and logout
+        if st.session_state.get("authenticated", False):
+            st.markdown("---")
             st.markdown(
                 f"""
-                <div style="
-                    background: white;
-                    border: 1px solid {COLORS['border']};
-                    border-radius: 16px;
-                    padding: 2rem;
-                    margin-bottom: 1.5rem;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-                    transition: all 0.2s ease;
-                    backdrop-filter: blur(8px);
-                ">
-                    <div style="
-                        font-size: 2.2rem;
-                        margin-bottom: 1.25rem;
-                        background: linear-gradient(135deg, {COLORS['blue']}, {COLORS['teal']});
-                        -webkit-background-clip: text;
-                        -webkit-text-fill-color: transparent;
-                        background-clip: text;
-                    ">
-                        {icon} {title}
-                    </div>
-                    <div style="
-                        color: {COLORS['muted']};
-                        font-size: 0.95rem;
-                        line-height: 1.7;
-                        margin-top: 0.75rem;
-                    ">
-                        {desc}
-                    </div>
+                <div style="padding: 1rem; background: rgba(255,255,255,0.1); border-radius: 8px;">
+                    <div style="font-weight: 600; margin-bottom: 0.5rem;">👤 {st.session_state.get('username', 'User')}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
+            if st.button("🚪 Logout", use_container_width=True):
+                logout()
+                st.rerun()
 
-    # ── Pipeline overview ────────────────────────────────────────────────────
-    st.markdown("---")
-    st.markdown(
-        f"<p style='color: {COLORS['muted']}; font-size: 0.95rem; margin-bottom: 1.75rem;'>"
-        "Our six-stage enhancement pipeline, refined for medical image quality.</p>",
-        unsafe_allow_html=True,
-    )
-
-    stages = [
-        ("1", "Acquisition", "Load & validate image format, size, and DICOM metadata"),
-        ("2", "Grayscale", "Smart color-to-grayscale conversion preserving luminance"),
-        ("3", "Denoise", "Median or Gaussian filtering — impulse vs. electronic noise"),
-        ("4", "Contrast", "CLAHE adaptive histogram equalization with clip limit"),
-        ("5", "Sharpen", "Unsharp masking with controllable α and σ parameters"),
-        ("6", "Output", "Download enhanced image, metrics, and PDF report"),
-    ]
-    pcols = st.columns(6, gap="small")
-    for col, (num, title, sub) in zip(pcols, stages):
-        with col:
-            # Color code: blue for technical, teal for clinical
-            stage_color = COLORS['blue'] if num in ("1", "2", "6") else COLORS['teal']
-            st.markdown(
-                f"""
-                <div style="
-                    text-align: center;
-                    background: white;
-                    border-radius: 14px;
-                    padding: 1.25rem 0.75rem;
-                    border: 1px solid {COLORS['border']};
-                    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-                    transition: all 0.2s ease;
-                ">
-                    <div style="
-                        background: linear-gradient(135deg, {stage_color}, {stage_color});
-                        color: white;
-                        border-radius: 50%;
-                        width: 42px;
-                        height: 42px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-weight: 800;
-                        font-size: 1.25rem;
-                        margin: 0 auto 10px;
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                    ">
-                        {num}
-                    </div>
-                    <div style="
-                        font-weight: 700;
-                        color: {COLORS['navy']};
-                        font-size: 0.9rem;
-                        margin-bottom: 2px;
-                        letter-spacing: -0.01em;
-                    ">
-                        {title}
-                    </div>
-                    <div style="
-                        color: {COLORS['muted']};
-                        font-size: 0.75rem;
-                        line-height: 1.4;
-                    ">
-                        {sub}
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-    # ── CTA / Call to Action ──────────────────────────────────────────────────
-    st.markdown("---")
-    st.markdown(
-        f"""
-        <div style="
-            text-align: center;
-            padding: 3rem 2rem;
-            background: linear-gradient(135deg, {COLORS['bg_secondary']}, white);
-            border-radius: 20px;
-            border: 1px solid {COLORS['border']};
-            margin-top: 2.5rem;
-            position: relative;
-            overflow: hidden;
-        ">
-            <div style="
-                position: absolute;
-                top: 0;
-                right: 0;
-                width: 80px;
-                height: 80px;
-                background: radial-gradient(circle, {COLORS['teal']} 0%, transparent 50%);
-                border-radius: 50%;
-                opacity: 0.4;
-            "></div>
-            <div style="position: relative; z-index: 1;">
-                <h2 style="
-                    color: {COLORS['navy']};
-                    font-size: 1.75rem;
-                    font-weight: 800;
-                    margin: 0 0 1rem 0;
-                    letter-spacing: -0.02em;
-                ">
-                    Ready to Enhance Your Images?
-                </h2>
-                <p style="
-                    color: {COLORS['muted']};
-                    font-size: 1.05rem;
-                    max-width: 550px;
-                    margin: 0 auto;
-                    line-height: 1.8;
-                ">
-                    Upload a medical image (X-ray, MRI, or CT scan) from the sidebar to begin.
-                    Our real image-processing pipeline will enhance clarity and reveal subtle details.
-                </p>
-                <div style="margin: 2rem auto 0; max-width: 350px;">
-                    <stButton label="Start Enhancement", type="primary", use_container_width=True, key="home_enhance_btn"/>
-                </div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # ── Disclaimer (prominent but secondary) ──────────────────────────────────
-    st.markdown("---")
-    st.caption(
-        f"⚠️  {DISCLAIMER}"
-    )
-
-    # ── Sample images preview ─────────────────────────────────────────────────
-    st.markdown("### Demo Images")
-    sample_cols = st.columns(3, gap="lg")
-    sample_paths = {
-        name: os.path.join(SAMPLE_IMAGE_DIR, fname)
-        for name, fname in SAMPLE_IMAGES.items()
-    }
-    for col, (name, path) in zip(sample_cols, sample_paths.items()):
-        with col:
-            if os.path.exists(path):
-                from PIL import Image as PILImage
-                img = PILImage.open(path)
-                st.image(img, caption=f"{name}", use_container_width=True)
-            else:
-                st.info(f"{name}: run `python data/generate_samples.py` to create samples.")
-
-
-# ── PDF download section (shared) ─────────────────────────────────────────────
-def _pdf_section():
-    pr   = st.session_state.get("pipeline_result")
-    orig = st.session_state.get("original_image")
-    enh  = st.session_state.get("enhanced_image")
-    if pr and orig is not None and enh is not None:
+        # Disclaimer
         st.markdown("---")
-        st.markdown("### 📄 Generate PDF Report")
-        if st.button("Generate & Download PDF Report", key="pdf_btn", type="secondary"):
-            with st.spinner("Generating PDF…"):
-                try:
-                    from services.export_service import generate_pdf_report
-                    pdf_bytes = generate_pdf_report(
-                        original_image=orig,
-                        enhanced_image=enh,
-                        orig_metrics=pr.original_metrics,
-                        enh_metrics=pr.enhanced_metrics,
-                        settings=pr.settings,
-                        delta=pr.delta,
-                        processing_time_ms=pr.total_time_ms,
-                        filename=st.session_state.get("loaded_filename", "image"),
-                    )
-                    st.download_button(
-                        "⬇ Download PDF Report",
-                        data=pdf_bytes,
-                        file_name="scanova_report.pdf",
-                        mime="application/pdf",
-                        key="pdf_dl_btn",
-                        type="primary",
-                    )
-                    st.success("PDF generated successfully.")
-                except Exception as exc:
-                    st.error(f"PDF generation failed: {exc}")
+        st.caption(f"⚠️ {DISCLAIMER[:100]}...")
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# ─── Main Application ──────────────────────────────────────────────────────────
+
 def main():
-    # Initialize session state for authentication
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
-    if "page_radio" not in st.session_state:
-        st.session_state["page_radio"] = "Home"
+    """Main application entry point."""
 
-    # Handle Login page (no sidebar, no auth required)
-    if st.session_state.get("page_radio") == "Login":
-        from pages.login import render as render_login
+    # Render sidebar
+    render_sidebar()
+
+    # Check authentication for protected pages
+    current_page = st.session_state.get("page_radio", "Home")
+
+    if current_page == "Login" or (current_page == "Home" and not st.session_state.get("authenticated", False)):
+        # Show login page
         render_login()
         return
 
-    # Check authentication for all other pages except Home
-    if st.session_state.get("page_radio") not in ["Home", "Login"]:
-        if not st.session_state.get("authenticated", False):
-            st.session_state["page_radio"] = "Login"
-            st.rerun()
-            return
+    if PAGES.get(current_page, {}).get("requires_auth", True) and not st.session_state.get("authenticated", False):
+        # Redirect to login
+        st.session_state["page_radio"] = "Login"
+        st.rerun()
+        return
 
-    # Render sidebar for authenticated pages and Home
-    if st.session_state.get("page_radio") != "Login":
-        page, settings = _render_sidebar()
+    # Render the selected page
+    page_config = PAGES.get(current_page)
+    if page_config:
+        page_config["render"]()
     else:
-        # This won't be reached due to early return above
-        page = "Login"
-        settings = None
-
-    if page == "Home":
-        _render_home()
-
-    elif page == "Dashboard":
-        from pages.dashboard import render as render_dashboard
-        render_dashboard()
-
-    elif page == "Image Enhancement":
-        from pages.image_enhancement import render as render_enhance
-        render_enhance(settings)
-        _pdf_section()
-
-    elif page == "Image Comparison":
-        from pages.image_comparison import render as render_compare
-        render_compare()
-
-    elif page == "Histogram Analysis":
-        from pages.histogram_analysis import render as render_hist
-        render_hist()
-
-    elif page == "Image Information":
-        from pages.image_information import render as render_info
-        render_info()
-
-    elif page == "About Project":
-        from pages.about_project import render as render_about
-        render_about()
-
-    elif page == "AI Analysis":
-        from pages.ai_analysis_dashboard import render as render_ai
-        render_ai()
-
-    elif page == "Dashboard":
-        from pages.dashboard import render as render_dashboard
-        render_dashboard()
-
-    # Footer
-    st.markdown(
-        f"""
-        <div style="text-align:center;color:{COLORS['muted']};font-size:0.75rem;
-                    padding:2rem 0 1rem;border-top:1px solid #E2E8F0;margin-top:3rem;">
-            <span style="font-weight:600;color:{COLORS['navy']};">SCANOVA</span> ·
-            CGIP Mini Project · Computer Science &amp; Engineering ·
-            Built with Python, Streamlit &amp; OpenCV ·
-            Educational Use Only
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        st.error(f"Page '{current_page}' not found")
 
 
 if __name__ == "__main__":

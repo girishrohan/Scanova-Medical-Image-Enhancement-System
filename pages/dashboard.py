@@ -69,7 +69,7 @@ def render():
     # ── Quick Actions ──────────────────────────────────────────────────────────
     st.markdown("### Quick Actions")
 
-    qa1, qa2, qa3 = st.columns(3, gap="medium")
+    qa1, qa2, qa3, qa4 = st.columns(4, gap="medium")
 
     with qa1:
         _action_card(
@@ -93,6 +93,22 @@ def render():
             "Generate and download professional PDF reports",
             "Image Enhancement",  # Navigate to enhancement for PDF
             COLORS["navy"],
+        )
+
+    with qa4:
+        _action_card(
+            "🪟 X-Ray Mirror",
+            "Real-time anatomical visualization with webcam tracking",
+            "X-Ray Mirror",
+            COLORS["teal"],
+        )
+
+    with qa4:
+        _action_card(
+            "🪟 X-Ray Mirror",
+            "Real-time anatomical visualization with webcam tracking",
+            "X-Ray Mirror",
+            COLORS["teal"],
         )
 
     st.divider()

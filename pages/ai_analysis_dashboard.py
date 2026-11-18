@@ -20,6 +20,7 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
+import cv2
 import numpy as np
 import streamlit as st
 
@@ -842,9 +843,19 @@ def _get_recommended_next_steps(
         "appropriate medical specialist."
     )
 
+    # Handle body_result being either BodyPartResult or AIAnalysisResult
+    body_part = None
+    if body_result:
+        if hasattr(body_result, 'body_region') and body_result.body_region:
+            # It's an AIAnalysisResult with body_region
+            body_part = body_result.body_region.body_part
+        elif hasattr(body_result, 'body_part'):
+            # It's a BodyPartResult
+            body_part = body_result.body_part
+
     # Body-part-specific guidance
-    if body_result and body_result.body_part:
-        bp = body_result.body_part
+    if body_part:
+        bp = body_part
         if bp in ("chest", "lung", "thorax"):
             steps.append(
                 "Seek medical evaluation for any chest-related findings. "

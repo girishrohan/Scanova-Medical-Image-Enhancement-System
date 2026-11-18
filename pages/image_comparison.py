@@ -90,15 +90,16 @@ def render():
     if pr:
         with st.expander("Applied Processing Settings"):
             s = pr.settings
+            contrast_detail = (
+                f" — clip {s.clahe_clip_limit}, tiles {s.clahe_tile_grid}×{s.clahe_tile_grid}"
+                if s.contrast_method == "CLAHE" else ""
+            )
             settings_text = f"""
             **Noise Reduction**: {s.noise_method} (kernel {s.kernel_size}×{s.kernel_size})
 
-            **Contrast**: {s.contrast_method}"
-            + (f" — clip {s.clahe_clip_limit}, tiles {s.clahe_tile_grid}×{s.clahe_tile_grid}" if s.contrast_method == "CLAHE" else "")
-            + f"
+            **Contrast**: {s.contrast_method}{contrast_detail}
 
-            **Sharpening**: α={s.sharpen_strength}, σ={s.sharpen_sigma}"
-            + f"
+            **Sharpening**: α={s.sharpen_strength}, σ={s.sharpen_sigma}
 
             **Processing Time**: {pr.total_time_ms:.1f} ms
             """
