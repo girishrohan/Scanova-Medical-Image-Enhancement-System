@@ -1,21 +1,20 @@
-export type ProcessingSettings = {
-  noiseMethod: "median" | "gaussian";
-  kernelSize: number;
-  contrastMethod: "clahe" | "equalize";
-  clipLimit: number;
-  tileGrid: number;
-  sharpenStrength: number;
-  sharpenSigma: number;
-  forceGrayscale: boolean;
-};
+// lib/image-processing.ts — SCANOVA Image Processing (client-side)
+// Implements noise reduction, contrast enhancement, and sharpening algorithms.
 
-export type ImageStats = {
-  width: number;
-  height: number;
-  mean: number;
-  contrast: number;
-  entropy: number;
-  sharpness: number;
+import { ProcessingSettings, ImageStats } from "./types";
+
+export type { ProcessingSettings, ImageStats };
+
+// Default settings matching Python backend
+export const DEFAULT_SETTINGS: ProcessingSettings = {
+  noiseMethod: "median",
+  kernelSize: 5,
+  contrastMethod: "clahe",
+  clipLimit: 2.0,
+  tileGrid: 8,
+  sharpenStrength: 1.2,
+  sharpenSigma: 1.0,
+  forceGrayscale: false,
 };
 
 function clamp(value: number) {

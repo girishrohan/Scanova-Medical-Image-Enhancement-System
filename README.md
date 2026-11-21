@@ -2,9 +2,9 @@
 
 **A Clearer View of Every Scan.**
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.65%2B-red)
-![OpenCV](https://img.shields.io/badge/OpenCV-(headless)-5.0%2B-green)
+![Next.js](https://img.shields.io/badge/Next.js-14-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
+![Vercel](https://img.shields.io/badge/Vercel-Deployed-black)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 > **Educational Use Only** — This system is developed as an image-processing demonstration for academic purposes. Enhanced images are NOT guaranteed to be diagnostically superior and must NOT replace professional medical interpretation.
@@ -13,7 +13,7 @@
 
 ## Overview
 
-Scanova is a web-based medical image enhancement application built for the **Computer Graphics and Image Processing (CGIP)** course. It demonstrates classical digital image processing techniques applied to medical images (X-rays, MRI, CT scans) through an interactive Streamlit dashboard.
+Scanova is a web-based medical image enhancement application built for the **Computer Graphics and Image Processing (CGIP)** course. It demonstrates classical digital image processing techniques applied to medical images (X-rays, MRI, CT scans) through an interactive Next.js dashboard.
 
 ### Key Features
 
@@ -21,10 +21,10 @@ Scanova is a web-based medical image enhancement application built for the **Com
 |--------|-------------|
 | 🔬 **Image Enhancement** | Upload images, configure processing parameters, run the 6-stage pipeline, download results |
 | ⚖️ **Image Comparison** | Side-by-side original vs enhanced with quantitative metrics |
-| 📊 **Histogram Analysis** | Interactive Plotly histograms & CDF comparison from real pixel data |
+| 📊 **Histogram Analysis** | Interactive histogram analysis and distribution comparison |
 | 📈 **Image Information** | Technical stats: entropy, Laplacian variance, Michelson contrast, processing timing |
 | 📑 **About Project** | Full documentation: algorithms, methodology, limitations, viva Q&A |
-| 📄 **PDF Report** | Generate academic report with images, parameters, metrics, and algorithm descriptions |
+| 🎥 **X-Ray Mirror AR** | Real-time anatomical visualization with webcam integration |
 
 ---
 
@@ -37,7 +37,7 @@ Noise Reduction → Contrast Enhancement → Edge Enhancement → Output
 
 | Stage | Technique | Purpose |
 |-------|-----------|---------|
-| 1. Acquisition | Multi-format loading (PNG, JPG, BMP, DICOM) | Read & validate medical images |
+| 1. Acquisition | Multi-format loading (PNG, JPG, BMP, WebP) | Read & validate medical images |
 | 2. Grayscale | Luminance conversion (Y = 0.299R + 0.587G + 0.114B) | Single-channel processing |
 | 3. Noise Reduction | Median / Gaussian filter | Remove salt-and-pepper / Gaussian noise |
 | 4. Contrast | CLAHE / Histogram Equalization | Adaptive/local contrast enhancement |
@@ -48,22 +48,77 @@ Noise Reduction → Contrast Enhancement → Edge Enhancement → Output
 
 ## Deployment
 
-### Vercel (web application)
+### Vercel (Production)
 
-The repository now includes a Next.js App Router application for Vercel. Import this repository into Vercel and deploy with the root directory set to the repository root. Vercel will detect Next.js from `package.json` and build the web interface. Do not configure `app.py` as a Python Function entrypoint: it is the legacy Streamlit app, which requires a persistent Streamlit server and is not a Vercel Function.
+Deploy this application to Vercel:
 
-The Vercel web application processes supported raster images in the browser; uploaded files are not sent to a server. It supports PNG, JPG/JPEG, BMP, and WebP. DICOM remains available only in the legacy Streamlit application.
+1. Fork or import this repository to GitHub
+2. Go to [vercel.com](https://vercel.com) and create a new project
+3. Import your GitHub repository
+4. Vercel will automatically detect Next.js and build the application
+5. Configure environment variables if needed
+6. Deploy!
 
-### Legacy Streamlit application
+The application is a **client-side image processing** application. All image enhancement operations run in the browser using WebAssembly-compiled algorithms. No image data is transmitted to servers during processing.
 
-To run the original Python application locally or on Streamlit Community Cloud, use `app.py` as the Streamlit entrypoint:
+### Local Development
 
 ```bash
-pip install -r requirements.txt
-streamlit run app.py
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Open http://localhost:3000
 ```
 
-The local Streamlit app opens at `http://localhost:8501`.
+### Production Build
+
+```bash
+# Build for production
+npm run build
+
+# Start production server
+npm start
+```
+
+---
+
+## Project Structure (Vercel-Ready Next.js)
+
+```
+cgip medical image enhancement/
+├── app/                         # Next.js App Router pages
+│   ├── api/                     # API routes (image processing endpoints)
+│   │   └── enhance/route.ts     # Image enhancement API
+│   ├── ai-analysis/page.tsx     # AI Analysis dashboard
+│   ├── dashboard/page.tsx       # Main dashboard
+│   ├── image-comparison/page.tsx
+│   ├── image-enhancement/page.tsx
+│   ├── image-information/page.tsx
+│   ├── histogram-analysis/page.tsx
+│   ├── login/page.tsx           # Authentication page
+│   ├── xray-mirror/page.tsx     # X-Ray Mirror AR
+│   ├── about/page.tsx
+│   └── page.tsx                 # Home page
+├── components/                  # React components
+│   └── scanova-workspace.tsx    # Main workspace component
+├── lib/                         # Utilities and configuration
+│   ├── config.ts                # Colors, limits, default parameters
+│   ├── types.ts                 # TypeScript type definitions
+│   ├── image-processing.ts      # Client-side image processing algorithms
+│   └── auth-context.tsx         # Authentication context
+├── samples/                     # Demo images
+│   ├── chest_xray_demo.png
+│   ├── brain_mri_demo.png
+│   └── knee_ct_demo.png
+├── public/                      # Static assets
+├── package.json                 # Next.js dependencies
+├── next.config.ts               # Next.js configuration
+├── vercel.json                  # Vercel deployment configuration
+└── README.md                    # This file
+```
 
 ---
 
@@ -71,101 +126,30 @@ The local Streamlit app opens at `http://localhost:8501`.
 
 | Category | Package | Version |
 |----------|---------|---------|
-| Web Framework | `streamlit` | ≥1.65 |
-| Image Processing | `opencv-python-headless` | ≥4.10 |
-| Numerical Computing | `numpy` | ≥1.26 |
-| Image I/O | `pillow` | ≥12.0 |
-| Visualization | `plotly`, `matplotlib` | ≥7.0, ≥3.11 |
-| DICOM | `pydicom` | ≥3.0 |
-| PDF Generation | `reportlab` | ≥5.0 |
-| Testing | `pytest` | ≥9.0 |
-
----
-
-## Project Structure
-
-```
-cgip medical image enhancement/
-├── app.py                      # Streamlit entrypoint + UI styling
-├── config.py                   # Colors, limits, default parameters
-├── requirements.txt            # Python dependencies
-├── README.md                   # This file
-├── core/                       # Core image processing algorithms
-│   ├── __init__.py
-│   ├── image_loader.py         # Multi-format loading (incl. DICOM)
-│   ├── preprocessing.py        # Grayscale, normalization
-│   ├── noise_reduction.py      # Median, Gaussian filters
-│   ├── contrast_enhancement.py # CLAHE, Histogram Equalization
-│   ├── edge_enhancement.py     # Unsharp masking, Sobel, Laplacian
-│   └── image_metrics.py        # Entropy, Laplacian variance, Michelson
-├── services/                   # Pipeline orchestration & utilities
-│   ├── __init__.py
-│   ├── image_processing_service.py  # 6-stage pipeline runner
-│   ├── histogram_service.py         # Plotly histogram & CDF figures
-│   └── export_service.py            # PNG export, ReportLab PDF
-├── pages/                      # Streamlit multipage app
-│   ├── __init__.py
-│   ├── image_enhancement.py    # Upload & process
-│   ├── image_comparison.py     # Side-by-side comparison
-│   ├── histogram_analysis.py   # Histograms & CDF
-│   ├── image_information.py    # Technical metrics
-│   └── about_project.py        # Documentation & viva Q&A
-├── utils/                      # Helper functions
-│   ├── __init__.py
-│   ├── validation.py           # File & parameter validation
-│   └── image_formatting.py     # Display formatting
-├── data/                       # Demo assets
-│   ├── generate_samples.py     # Synthetic medical image generator
-│   └── sample_images/          # Generated PNG demos
-└── tests/                      # Unit tests (73 tests)
-    ├── test_enhancement.py
-    ├── test_image_loading.py
-    ├── test_metrics.py
-    └── test_preprocessing.py
-```
-
----
-
-## Screenshots
-
-### Home Page
-![Home](docs/home.png)
-
-### Image Enhancement
-![Enhancement](docs/enhancement.png)
-
-### Histogram Analysis
-![Histogram](docs/histogram.png)
+| Web Framework | `next` | 14.x |
+| React | `react`, `react-dom` | 18.x |
+| Image Processing | (Client-side) | - |
+| Icons | `lucide-react` | ^0.320 |
 
 ---
 
 ## Usage
 
-1. **Start the app**: `streamlit run app.py`
-2. **Navigate** using the sidebar: Home → Image Enhancement → Image Comparison → Histogram Analysis → Image Information → About Project
-3. **Upload** a medical image (PNG, JPG, BMP, DICOM up to 30 MB)
-4. **Configure** processing parameters in the sidebar expanders:
-   - Noise Reduction: Median/Gaussian, kernel size, σ
+1. **Run the app**: `npm run dev` (development) or `npm run build && npm start` (production)
+2. **Navigate** using the sidebar: Dashboard → Image Enhancement → Image Comparison → Histogram Analysis → Image Information → X-Ray Mirror → About Project
+3. **Login** with demo credentials: `demo` / `scanova2024`
+4. **Upload** a medical image (PNG, JPG, BMP, WebP up to 30 MB)
+5. **Configure** processing parameters:
+   - Noise Reduction: Median/Gaussian, kernel size
    - Contrast: CLAHE/Histogram Equalization, clip limit, tile grid
    - Sharpening: Unsharp mask strength (α) and blur σ
-5. **Click "Enhance Image"** to run the pipeline
-6. **Compare** results on the Image Comparison page
-7. **Analyze** histograms and metrics
-8. **Download** enhanced image or generate a PDF report
+6. **Click "Enhance Image"** to run the pipeline
+7. **View** results, statistics, and histograms
+8. **Download** enhanced image
 
 ---
 
-## DICOM Support
-
-Scanova handles DICOM files using PyDICOM:
-- Reads pixel data and applies Rescale Slope/Intercept (Hounsfield Units)
-- Applies Window Center/Width for display windowing
-- Corrects MONOCHROME1 (inverted) → MONOCHROME2 convention
-- Extracts metadata: Modality, Photometric Interpretation, Bits Stored, Rows, Columns
-
----
-
-## Algorithm References
+## Algorithm Details
 
 1. **Median Filter** — Non-linear filter replacing pixel with neighborhood median. Robust to impulse noise.
 2. **Gaussian Filter** — Convolution with Gaussian kernel. Attenuates Gaussian noise.
@@ -184,41 +168,47 @@ Scanova handles DICOM files using PyDICOM:
 - Metrics (entropy, Laplacian variance) describe pixel statistics, not diagnostic quality
 - Grayscale pipeline loses color information
 - No ground-truth reference for PSNR/SSIM
-- Basic DICOM support only (no compressed transfer syntaxes, multi-frame series)
-- Session data is not persisted
+- Session data is not persisted (demo edition)
+- DICOM support requires backend server (not in Vercel frontend)
 
 ---
 
 ## Future Enhancements
 
-- Deep learning denoising (DnCNN, etc.)
-- DICOM series browser with slice navigation
-- ROI-based selective enhancement
-- Color-preserving pipeline for dermoscopy/endoscopy
-- Batch processing
-- PSNR/SSIM with reference image
-- Export enhanced images back to DICOM
+- DICOM support via backend API route
+- Dark mode theme
+- Keyboard shortcuts
+- Batch processing mode
+- Report generation (PDF)
+- Mobile-responsive design
+- Accessibility improvements
 
 ---
 
-## Testing
+## Local Development
+
+### Prerequisites
+
+- Node.js 18.x or higher
+- npm or yarn
+
+### Installation
 
 ```bash
-# Run all tests
-pytest tests/ -v
+npm install
 
-# With coverage
-pytest tests/ --cov=core --cov=services --cov=utils
+# Development mode with hot reload
+npm run dev
+
+# Production build
+npm run build
+
+# Start production server
+npm start
+
+# Linting
+npm run lint
 ```
-
-**81 tests passing** covering:
-- Image loading (PNG, JPG, BMP, DICOM, validation)
-- Noise reduction (Median, Gaussian, edge cases)
-- Contrast enhancement (CLAHE, HistEq, color handling)
-- Edge enhancement (unsharp masking, Sobel, Laplacian)
-- Image metrics (entropy, Laplacian variance, Michelson contrast)
-- Preprocessing (grayscale conversion, normalization)
-- Full pipeline integration
 
 ---
 
@@ -228,9 +218,9 @@ pytest tests/ --cov=core --cov=services --cov=utils
 **Course**: Computer Graphics and Image Processing  
 **Domain**: Digital Image Processing / Medical Imaging  
 
-### Viva Preparation
+### Viva Preparation Questions
 
-The **About Project** page includes 12 detailed viva questions with answers covering:
+The **About Project** page includes detailed responses covering:
 - Image enhancement vs restoration
 - CLAHE vs global histogram equalization
 - Median vs Gaussian filtering for different noise types
@@ -238,9 +228,6 @@ The **About Project** page includes 12 detailed viva questions with answers cove
 - Histogram and CDF interpretation
 - Shannon entropy in image processing
 - Variance of Laplacian as sharpness proxy
-- DICOM handling and Hounsfield Units
-- Why enhanced images aren't diagnostically superior
-- Michelson contrast limitations
 - Grayscale conversion luminance weights
 - CDF role in histogram equalization
 
@@ -248,7 +235,7 @@ The **About Project** page includes 12 detailed viva questions with answers cove
 
 ## License
 
-MIT License — Educational use encouraged. See [LICENSE](LICENSE) for details.
+MIT License — Educational use encouraged.
 
 ---
 
@@ -259,4 +246,4 @@ MIT License — Educational use encouraged. See [LICENSE](LICENSE) for details.
 
 ---
 
-**Built with** Python, Streamlit, OpenCV, NumPy, Plotly, Pillow, PyDICOM, ReportLab
+**Built with** Next.js, TypeScript, React, and client-side image processing algorithms.
