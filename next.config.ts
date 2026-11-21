@@ -4,9 +4,6 @@ const nextConfig: NextConfig = {
   // Power the header to hide version info
   poweredByHeader: false,
   
-  // Output target for Vercel
-  output: "standalone",
-  
   // React Strict Mode for better error detection
   reactStrictMode: true,
   
