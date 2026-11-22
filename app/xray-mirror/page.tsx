@@ -48,6 +48,7 @@ export default function XRMMirrorPage() {
   const animFrameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const fpsFramesRef = useRef<number[]>([]);
+  const lastTimestampRef = useRef<number>(0);
 
   const [cameraOn, setCameraOn] = useState(false);
   const [error, setError] = useState("");
@@ -73,6 +74,40 @@ export default function XRMMirrorPage() {
       return;
     }
   }, [router]);
+
+  // Suppress benign MediaPipe/Emscripten XNNPACK INFO logs that Next.js Turbopack
+  // surfaces as console.error overlay. Real errors still pass through.
+  useEffect(() => {
+    const XNNPACK_MSG = "INFO: Created TensorFlow Lite XNNPACK delegate for CPU.";
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    const originalLog = console.log;
+
+    const filter = (args: any[]) =>
+      args.some(
+        (a) =>
+          typeof a === "string" && a.includes(XNNPACK_MSG)
+      );
+
+    console.error = (...args: any[]) => {
+      if (filter(args)) return;
+      originalError.apply(console, args);
+    };
+    console.warn = (...args: any[]) => {
+      if (filter(args)) return;
+      originalWarn.apply(console, args);
+    };
+    console.log = (...args: any[]) => {
+      if (filter(args)) return;
+      originalLog.apply(console, args);
+    };
+
+    return () => {
+      console.error = originalError;
+      console.warn = originalWarn;
+      console.log = originalLog;
+    };
+  }, []);
 
   const handleLogout = () => {
     clearAuth();
@@ -331,14 +366,19 @@ export default function XRMMirrorPage() {
       lastTimeRef.current = now;
 
       const video = videoRef.current;
-      if (!video || video.readyState < 2) return;
+      if (!video || video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) return;
+
+      // Compute a strictly increasing timestamp for MediaPipe
+      const timestamp = Math.max(now, lastTimestampRef.current + 1);
+      lastTimestampRef.current = timestamp;
 
       // Face tracking
       if (faceLandmarkerRef.current) {
         try {
-          const results = faceLandmarkerRef.current.detectForVideo(video, now);
-          if (results.faceLandmarks && results.faceLandmarks.length > 0) {
-            setFaceLocked(true);
+          const results = faceLandmarkerRef.current.detectForVideo(video, timestamp);
+          const faceFound = !!(results.faceLandmarks && results.faceLandmarks.length > 0);
+          setFaceLocked((prev) => (prev === faceFound ? prev : faceFound));
+          if (faceFound) {
             const landmarks = results.faceLandmarks[0];
 
             // Get transformation matrix for head pose
@@ -366,8 +406,6 @@ export default function XRMMirrorPage() {
                 group.rotation.y += (tiltY - group.rotation.y) * 0.1;
               }
             }
-          } else {
-            setFaceLocked(false);
           }
         } catch (e) {
           // Silently handle detection errors
@@ -377,9 +415,10 @@ export default function XRMMirrorPage() {
       // Hand tracking
       if (handLandmarkerRef.current) {
         try {
-          const results = handLandmarkerRef.current.detectForVideo(video, now);
-          if (results.landmarks && results.landmarks.length > 0) {
-            setHandLocked(true);
+          const results = handLandmarkerRef.current.detectForVideo(video, timestamp);
+          const handFound = !!(results.landmarks && results.landmarks.length > 0);
+          setHandLocked((prev) => (prev === handFound ? prev : handFound));
+          if (handFound) {
             // Update finger positions based on hand landmarks
             const hand = results.landmarks[0];
             if (anatomicalGroupRef.current) {
@@ -387,8 +426,6 @@ export default function XRMMirrorPage() {
               const indexTip = hand[8];
               // Could add interactive highlighting here
             }
-          } else {
-            setHandLocked(false);
           }
         } catch (e) {
           // Silently handle
