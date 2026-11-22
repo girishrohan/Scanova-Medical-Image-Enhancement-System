@@ -16,10 +16,12 @@ import {
 import Link from "next/link";
 import { COLORS, APP_NAME, APP_VERSION, DISCLAIMER } from "@/lib/config";
 import { getAuth, clearAuth } from "@/lib/auth-context";
+import { useSharedImage } from "@/lib/image-context";
 
 export default function ImageComparisonPage() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const { image: sharedImage, setImage: setSharedImage } = useSharedImage();
   const [original, setOriginal] = useState<string | null>(null);
   const [enhanced, setEnhanced] = useState<string | null>(null);
   const [splitRatio, setSplitRatio] = useState(50);
@@ -32,6 +34,13 @@ export default function ImageComparisonPage() {
       return;
     }
   }, [router]);
+
+  // Sync shared image
+  useEffect(() => {
+    if (sharedImage && !original) {
+      setOriginal(sharedImage.url);
+    }
+  }, [sharedImage, original]);
 
   const handleLogout = () => {
     clearAuth();
@@ -51,6 +60,13 @@ export default function ImageComparisonPage() {
     const url = URL.createObjectURL(file);
     setOriginal(url);
     setEnhanced(null);
+    setSharedImage({
+      url,
+      name: file.name,
+      width: 0,
+      height: 0,
+      size: file.size,
+    });
   };
 
   const loadSample = (sample: string) => {

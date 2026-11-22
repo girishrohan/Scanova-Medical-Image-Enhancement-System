@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import * as THREE from "three";
+import { FaceLandmarker, HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import {
   ArrowLeftRight,
   Camera,
@@ -82,11 +83,8 @@ export default function XRMMirrorPage() {
   const loadMediaPipe = useCallback(async () => {
     if (faceLandmarkerRef.current) return;
     setLoading(true);
+    setError("");
     try {
-      // Dynamically import MediaPipe via CDN
-      const vision = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs" as any);
-      const { FaceLandmarker, HandLandmarker, FilesetResolver } = vision;
-
       const filesetResolver = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
       );
@@ -271,7 +269,6 @@ export default function XRMMirrorPage() {
     setLoading(true);
     try {
       await loadMediaPipe();
-      await enumerateCameras();
 
       const constraints: MediaStreamConstraints = {
         video: selectedCamera
@@ -280,6 +277,7 @@ export default function XRMMirrorPage() {
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      await enumerateCameras();
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
@@ -440,9 +438,21 @@ export default function XRMMirrorPage() {
   useEffect(() => {
     return () => {
       stopCamera();
+      if (faceLandmarkerRef.current) {
+        faceLandmarkerRef.current.close();
+        faceLandmarkerRef.current = null;
+      }
+      if (handLandmarkerRef.current) {
+        handLandmarkerRef.current.close();
+        handLandmarkerRef.current = null;
+      }
       if (rendererRef.current) {
         rendererRef.current.dispose();
         rendererRef.current = null;
+      }
+      if (sceneRef.current) {
+        sceneRef.current.clear();
+        sceneRef.current = null;
       }
     };
   }, []);

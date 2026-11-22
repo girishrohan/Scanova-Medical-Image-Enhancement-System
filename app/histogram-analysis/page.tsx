@@ -17,9 +17,11 @@ import {
 import Link from "next/link";
 import { COLORS, APP_NAME, APP_VERSION, DISCLAIMER } from "@/lib/config";
 import { getAuth, clearAuth } from "@/lib/auth-context";
+import { useSharedImage } from "@/lib/image-context";
 
 export default function HistogramAnalysisPage() {
   const router = useRouter();
+  const { image: sharedImage, setImage: setSharedImage } = useSharedImage();
   const [image, setImage] = useState<string | null>(null);
   const [histogram, setHistogram] = useState<number[]>(new Array(256).fill(0));
   const [stats, setStats] = useState<any>(null);
@@ -32,6 +34,13 @@ export default function HistogramAnalysisPage() {
       return;
     }
   }, [router]);
+
+  // Sync shared image
+  useEffect(() => {
+    if (sharedImage && !image) {
+      setImage(sharedImage.url);
+    }
+  }, [sharedImage, image]);
 
   const handleLogout = () => {
     clearAuth();
@@ -50,6 +59,13 @@ export default function HistogramAnalysisPage() {
     setError("");
     const url = URL.createObjectURL(file);
     setImage(url);
+    setSharedImage({
+      url,
+      name: file.name,
+      width: 0,
+      height: 0,
+      size: file.size,
+    });
     
     // Generate sample histogram data
     const sampleHistogram = Array.from({ length: 256 }, () => Math.random() * 100);

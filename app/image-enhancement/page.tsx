@@ -14,6 +14,7 @@ import Link from "next/link";
 import { COLORS, APP_NAME, APP_VERSION, DISCLAIMER, SAMPLE_IMAGES, DEFAULT_SETTINGS } from "@/lib/config";
 import { getAuth, clearAuth } from "@/lib/auth-context";
 import { ImageStats, processImage, measureImage, ProcessingSettings } from "@/lib/image-processing";
+import { useSharedImage } from "@/lib/image-context";
 
 type Frame = { 
   url: string; 
@@ -53,6 +54,7 @@ function toDataURL(imageData: ImageData): string {
 export default function ImageEnhancementPage() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const { image: sharedImage, setImage: setSharedImage, clearImage: clearSharedImage } = useSharedImage();
   const [original, setOriginal] = useState<Frame | null>(null);
   const [enhanced, setEnhanced] = useState<string | null>(null);
   const [stats, setStats] = useState<{ before: ImageStats; after: ImageStats } | null>(null);
@@ -60,6 +62,19 @@ export default function ImageEnhancementPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
+
+  // Sync shared image to local state
+  useEffect(() => {
+    if (sharedImage && !original) {
+      setOriginal({
+        url: sharedImage.url,
+        name: sharedImage.name,
+        width: sharedImage.width,
+        height: sharedImage.height,
+        size: sharedImage.size,
+      });
+    }
+  }, [sharedImage, original]);
 
   useEffect(() => {
     const auth = getAuth();
@@ -102,13 +117,15 @@ export default function ImageEnhancementPage() {
         return;
       }
       
-      setOriginal({ 
+      const frame = { 
         url, 
         name: file.name, 
         width: image.naturalWidth, 
         height: image.naturalHeight, 
         size: file.size 
-      });
+      };
+      setOriginal(frame);
+      setSharedImage(frame);
     } catch {
       setError("This image could not be decoded. Try a PNG or JPEG file.");
     }
@@ -128,13 +145,15 @@ export default function ImageEnhancementPage() {
       image.src = url;
       await image.decode();
       
-      setOriginal({ 
+      const frame = { 
         url, 
         name: `${sample.label} · Demo`, 
         width: image.naturalWidth, 
         height: image.naturalHeight, 
         size: blob.size 
-      });
+      };
+      setOriginal(frame);
+      setSharedImage(frame);
     } catch {
       setError("The selected demo image could not be loaded.");
     }
@@ -180,8 +199,7 @@ export default function ImageEnhancementPage() {
     setError("");
     setSettings({ ...defaults });
     if (fileRef.current) fileRef.current.value = "";
-    
-    localStorage.removeItem("scanova-image-data");
+    clearSharedImage();
   };
 
   const download = () => {

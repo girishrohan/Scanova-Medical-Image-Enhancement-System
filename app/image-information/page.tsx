@@ -14,9 +14,11 @@ import {
 import Link from "next/link";
 import { COLORS, APP_NAME, APP_VERSION, DISCLAIMER } from "@/lib/config";
 import { getAuth, clearAuth } from "@/lib/auth-context";
+import { useSharedImage } from "@/lib/image-context";
 
 export default function ImageInformationPage() {
   const router = useRouter();
+  const { image: sharedImage, setImage: setSharedImage } = useSharedImage();
   const [image, setImage] = useState<string | null>(null);
   const [filename, setFilename] = useState("");
   const [fileSize, setFileSize] = useState(0);
@@ -32,6 +34,17 @@ export default function ImageInformationPage() {
       return;
     }
   }, [router]);
+
+  // Sync shared image
+  useEffect(() => {
+    if (sharedImage && !image) {
+      setImage(sharedImage.url);
+      setFilename(sharedImage.name);
+      setFileSize(sharedImage.size);
+      setWidth(sharedImage.width);
+      setHeight(sharedImage.height);
+    }
+  }, [sharedImage, image]);
 
   const handleLogout = () => {
     clearAuth();
@@ -54,11 +67,25 @@ export default function ImageInformationPage() {
     
     const url = URL.createObjectURL(file);
     setImage(url);
+    setSharedImage({
+      url,
+      name: file.name,
+      width: 0,
+      height: 0,
+      size: file.size,
+    });
     
     const img = new Image();
     img.onload = () => {
       setWidth(img.naturalWidth);
       setHeight(img.naturalHeight);
+      setSharedImage({
+        url,
+        name: file.name,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+        size: file.size,
+      });
     };
     img.src = url;
   };
