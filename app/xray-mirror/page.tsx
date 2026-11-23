@@ -25,11 +25,11 @@ type DisplayMode = "normal" | "xray" | "split" | "lens";
 type CameraDevice = { deviceId: string; label: string };
 
 const LAYER_DEFS = [
-  { id: "skull", label: "Skull", color: "#e2e8f0", defaultOn: true, model: "/models/skull.glb" },
-  { id: "brain", label: "Brain", color: "#f472b6", defaultOn: true, model: "/models/brain.glb" },
-  { id: "facial", label: "Facial Muscles", color: "#fb923c", defaultOn: false, model: "/models/facial.glb" },
-  { id: "eyes", label: "Eyes", color: "#38bdf8", defaultOn: true, model: "/models/eyes.glb" },
-  { id: "hands", label: "Hand Bones", color: "#a78bfa", defaultOn: false, model: "/models/hands.glb" },
+  { id: "skull", label: "Skull", color: "#bfe3ff", defaultOn: true, model: "/models/skull.glb" },
+  { id: "brain", label: "Brain (Cerebrum)", color: "#ff9fc0", defaultOn: true, model: "/models/brain.glb" },
+  { id: "facial", label: "Facial Muscles", color: "#ff6b5e", defaultOn: false, model: "/models/facial.glb" },
+  { id: "eyes", label: "Eyes / Orbits", color: "#fff3a8", defaultOn: true, model: "/models/eyes.glb" },
+  { id: "hands", label: "Hand Bones", color: "#d9f0ff", defaultOn: false, model: "/models/hands.glb" },
 ];
 
 // Fresnel X-Ray shader
@@ -91,12 +91,16 @@ export default function XRMMirrorPage() {
   const lastTimestampRef = useRef<number>(0);
   const gltfLoaderRef = useRef<GLTFLoader | null>(null);
 
+  // AR label overlay state
+  const [arLabels, setArLabels] = useState<{ text: string; x: number; y: number; color: string }[]>([]);
+
   const [cameraOn, setCameraOn] = useState(false);
   const [error, setError] = useState("");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("xray");
   const [renderMode, setRenderMode] = useState<"xray" | "solid">("xray");
   const [transparency, setTransparency] = useState(70);
   const [lensSize, setLensSize] = useState(60);
+  const [lensPos, setLensPos] = useState({ x: 50, y: 50 });
   const [layers, setLayers] = useState<Record<string, boolean>>(
     Object.fromEntries(LAYER_DEFS.map((l) => [l.id, l.defaultOn]))
   );
@@ -109,6 +113,7 @@ export default function XRMMirrorPage() {
   const [loading, setLoading] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [modelError, setModelError] = useState("");
 
   // Auth check
   useEffect(() => {
@@ -245,65 +250,8 @@ export default function XRMMirrorPage() {
     });
   }, []);
 
-  // Create procedural fallback meshes
-  const createFallbackMesh = useCallback((id: string): THREE.Group => {
-    const group = new THREE.Group();
-    group.name = id;
-
-    switch (id) {
-      case "skull": {
-        const geo = new THREE.SphereGeometry(1.2, 32, 32);
-        geo.scale(1, 1.15, 1.05);
-        const mesh = new THREE.Mesh(geo, createXRayMaterial(0xe2e8f0, 0.2));
-        mesh.name = "skull";
-        group.add(mesh);
-        break;
-      }
-      case "brain": {
-        const geo = new THREE.SphereGeometry(0.85, 32, 32);
-        geo.scale(0.9, 0.95, 0.85);
-        const mesh = new THREE.Mesh(geo, createXRayMaterial(0xf472b6, 0.3));
-        mesh.name = "brain";
-        group.add(mesh);
-        break;
-      }
-      case "facial": {
-        const geo = new THREE.TorusGeometry(0.6, 0.12, 16, 32);
-        const mesh = new THREE.Mesh(geo, createXRayMaterial(0xfb923c, 0.35));
-        mesh.name = "facial";
-        mesh.rotation.x = Math.PI / 2;
-        group.add(mesh);
-        break;
-      }
-      case "eyes": {
-        const geo = new THREE.SphereGeometry(0.12, 16, 16);
-        const leftEye = new THREE.Mesh(geo, createXRayMaterial(0x38bdf8, 0.5));
-        leftEye.name = "leftEye";
-        leftEye.position.set(-0.3, 0.1, 0.85);
-        const rightEye = new THREE.Mesh(geo.clone(), createXRayMaterial(0x38bdf8, 0.5));
-        rightEye.name = "rightEye";
-        rightEye.position.set(0.3, 0.1, 0.85);
-        group.add(leftEye);
-        group.add(rightEye);
-        break;
-      }
-      case "hands": {
-        for (let i = 0; i < 5; i++) {
-          const geo = new THREE.CylinderGeometry(0.025, 0.025, 0.5, 8);
-          const mesh = new THREE.Mesh(geo, createXRayMaterial(0xa78bfa, 0.4));
-          mesh.name = `finger${i}`;
-          mesh.position.set((i - 2) * 0.12, -1.5, 0);
-          mesh.rotation.z = (i - 2) * 0.08;
-          group.add(mesh);
-        }
-        break;
-      }
-    }
-    return group;
-  }, [createXRayMaterial]);
-
-  // Load GLB model with fallback
-  const loadModel = useCallback(async (id: string, path: string): Promise<THREE.Group> => {
+  // Load GLB model (NO procedural fallbacks)
+  const loadModel = useCallback(async (id: string, path: string): Promise<THREE.Group | null> => {
     if (!gltfLoaderRef.current) {
       gltfLoaderRef.current = new GLTFLoader();
     }
@@ -317,14 +265,16 @@ export default function XRMMirrorPage() {
       model.traverse((child: any) => {
         if (child.isMesh) {
           child.material = createXRayMaterial(0xffffff, 0.25);
+          child.castShadow = false;
+          child.receiveShadow = false;
         }
       });
       return model;
     } catch (err) {
-      console.warn(`Model ${path} not found, using procedural fallback for ${id}`);
-      return createFallbackMesh(id);
+      console.warn(`Model ${path} not found.`);
+      return null;
     }
-  }, [createXRayMaterial, createFallbackMesh]);
+  }, [createXRayMaterial]);
 
   // Initialize Three.js scene
   const initThree = useCallback(async () => {
@@ -366,14 +316,28 @@ export default function XRMMirrorPage() {
     scene.add(group);
 
     // Load models for each layer
+    let anyLoaded = false;
     for (const layer of LAYER_DEFS) {
-      const modelGroup = await loadModel(layer.id, layer.model);
-      modelGroup.visible = layers[layer.id];
-      meshGroupRefs.current[layer.id] = modelGroup;
-      group.add(modelGroup);
+      const model = await loadModel(layer.id, layer.model);
+      if (model) {
+        model.visible = layers[layer.id];
+        meshGroupRefs.current[layer.id] = model;
+        group.add(model);
+        anyLoaded = true;
+      }
     }
 
-    setModelsLoaded(true);
+    if (anyLoaded) {
+      setModelsLoaded(true);
+      setModelError("");
+    } else {
+      setModelsLoaded(false);
+      setModelError(
+        "No 3D anatomical models found in public/models/. " +
+        "Download BodyParts3D meshes from https://github.com/MasterOfVFX2070/xray-mirror " +
+        "and place .glb files (skull.glb, brain.glb, facial.glb, eyes.glb, hands.glb) in public/models/."
+      );
+    }
 
     // Resize handler
     const handleResize = () => {
@@ -416,10 +380,7 @@ export default function XRMMirrorPage() {
         const settings = track.getSettings();
         setResolution(`${settings.width || "?"}×${settings.height || "?"}`);
 
-        // Init Three.js
         await initThree();
-
-        // Start render loop
         startRenderLoop();
       }
     } catch (err) {
@@ -463,7 +424,6 @@ export default function XRMMirrorPage() {
       const video = videoRef.current;
       if (!video || video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) return;
 
-      // Compute strictly increasing timestamp for MediaPipe
       const timestamp = Math.max(now, lastTimestampRef.current + 1);
       lastTimestampRef.current = timestamp;
 
@@ -476,11 +436,30 @@ export default function XRMMirrorPage() {
           if (faceFound) {
             const landmarks = results.faceLandmarks[0];
 
-            // Get transformation matrix for head pose
+            // Project landmarks to 2D for AR labels
+            const newLabels: { text: string; x: number; y: number; color: string }[] = [];
+            if (layers.skull) {
+              const pt = landmarks[10]; // top of head
+              newLabels.push({ text: "Cranium / Skull", x: pt.x * 100, y: pt.y * 100, color: "#bfe3ff" });
+            }
+            if (layers.brain) {
+              const pt = landmarks[1]; // nose tip (approx center)
+              newLabels.push({ text: "Brain (Cerebrum)", x: pt.x * 100, y: (pt.y - 0.05) * 100, color: "#ff9fc0" });
+            }
+            if (layers.eyes) {
+              const pt = landmarks[33]; // left eye
+              newLabels.push({ text: "Eyes / Orbits", x: pt.x * 100, y: pt.y * 100, color: "#fff3a8" });
+            }
+            if (layers.facial) {
+              const pt = landmarks[0]; // chin
+              newLabels.push({ text: "Facial Muscles", x: pt.x * 100, y: pt.y * 100, color: "#ff6b5e" });
+            }
+            setArLabels(newLabels);
+
+            // 4x4 matrix transform
             if (results.facialTransformationMatrixes && results.facialTransformationMatrixes.length > 0) {
               const matrix = results.facialTransformationMatrixes[0].data;
               if (anatomicalGroupRef.current) {
-                // Apply 4x4 matrix with smooth lerp
                 const group = anatomicalGroupRef.current;
                 const tx = matrix[12] * 0.5;
                 const ty = -matrix[13] * 0.5;
@@ -490,7 +469,6 @@ export default function XRMMirrorPage() {
                 group.position.y += (ty - group.position.y) * 0.15;
                 group.position.z += (tz - group.position.z) * 0.15;
 
-                // Extract rotation from matrix (simplified Euler)
                 const rotX = Math.atan2(matrix[9], matrix[10]);
                 const rotY = Math.atan2(-matrix[8], Math.sqrt(matrix[9] * matrix[9] + matrix[10] * matrix[10]));
                 const rotZ = Math.atan2(matrix[4], matrix[0]);
@@ -500,6 +478,8 @@ export default function XRMMirrorPage() {
                 group.rotation.z += (rotZ - group.rotation.z) * 0.1;
               }
             }
+          } else {
+            setArLabels([]);
           }
         } catch (e) {
           // Silently handle detection errors
@@ -512,16 +492,20 @@ export default function XRMMirrorPage() {
           const results = handLandmarkerRef.current.detectForVideo(video, timestamp);
           const handFound = !!(results.landmarks && results.landmarks.length > 0);
           setHandLocked((prev) => (prev === handFound ? prev : handFound));
-          if (handFound) {
+          if (handFound && layers.hands) {
             const hand = results.landmarks[0];
-            // Update hand bone positions
             const handsGroup = meshGroupRefs.current.hands;
             if (handsGroup && hand.length >= 21) {
-              // Map wrist and finger positions
               const wrist = hand[0];
               handsGroup.position.x = (wrist.x - 0.5) * 2;
               handsGroup.position.y = -(wrist.y - 0.5) * 2;
               handsGroup.position.z = wrist.z * 2;
+
+              // Add hand bone label
+              setArLabels((prev) => [
+                ...prev,
+                { text: "Hand Bones (Metacarpals & Phalanges)", x: wrist.x * 100, y: wrist.y * 100, color: "#d9f0ff" },
+              ]);
             }
           }
         } catch (e) {
@@ -546,13 +530,11 @@ export default function XRMMirrorPage() {
                 mat.uniforms.opacity.value = opacityFactor * 0.6;
               }
               if (renderMode === "solid" && mat.fragmentShader !== solidFragmentShader) {
-                // Switch to solid shader
                 mat.fragmentShader = solidFragmentShader;
                 mat.blending = THREE.NormalBlending;
                 mat.depthWrite = true;
                 mat.needsUpdate = true;
               } else if (renderMode === "xray" && mat.fragmentShader !== xrayFragmentShader) {
-                // Switch to xray shader
                 mat.fragmentShader = xrayFragmentShader;
                 mat.blending = THREE.AdditiveBlending;
                 mat.depthWrite = false;
@@ -614,11 +596,11 @@ export default function XRMMirrorPage() {
     <div style={{
       position: "fixed",
       inset: 0,
-      background: "#000",
+      background: "transparent",
       overflow: "hidden",
       zIndex: 0,
     }}>
-      {/* Camera Feed */}
+      {/* Camera Feed - ALWAYS visible as base layer */}
       <video
         ref={videoRef}
         autoPlay
@@ -632,12 +614,10 @@ export default function XRMMirrorPage() {
           objectFit: "cover",
           zIndex: 1,
           transform: "scaleX(-1)",
-          opacity: displayMode === "normal" ? 1 : displayMode === "split" ? 0.5 : 0.35,
-          transition: "opacity 0.3s ease",
         }}
       />
 
-      {/* Three.js Canvas Overlay */}
+      {/* Three.js Canvas Overlay - transparent background */}
       <div
         ref={threeContainerRef}
         style={{
@@ -650,15 +630,74 @@ export default function XRMMirrorPage() {
         }}
       />
 
-      {/* Radial lens mask overlay (CSS-based soft feather) */}
+      {/* Split mode mask */}
+      {displayMode === "split" && cameraOn && (
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 3,
+          pointerEvents: "none",
+          background: "linear-gradient(to right, transparent 50%, rgba(0,0,0,0.0) 50%)",
+          borderRight: "2px solid rgba(20, 184, 166, 0.5)",
+        }} />
+      )}
+
+      {/* Lens mode radial mask */}
       {displayMode === "lens" && cameraOn && (
         <div style={{
           position: "absolute",
           inset: 0,
           zIndex: 3,
           pointerEvents: "none",
-          background: `radial-gradient(circle at 50% 50%, transparent ${lensSize * 0.6}%, rgba(0,0,0,0.7) ${lensSize}%)`,
+          background: `radial-gradient(circle ${lensSize * 3}px at ${lensPos.x}% ${lensPos.y}%, transparent 0%, rgba(0,0,0,0.85) ${lensSize * 4}px)`,
         }} />
+      )}
+
+      {/* AR Labels Overlay */}
+      {cameraOn && arLabels.length > 0 && displayMode !== "normal" && (
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 4,
+          pointerEvents: "none",
+        }}>
+          {arLabels.map((label, idx) => (
+            <div
+              key={idx}
+              style={{
+                position: "absolute",
+                left: `${100 - label.x}%`,
+                top: `${label.y}%`,
+                transform: "translate(-50%, -50%)",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <div style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: label.color,
+                boxShadow: `0 0 8px ${label.color}`,
+                flexShrink: 0,
+              }} />
+              <span style={{
+                fontSize: "0.7rem",
+                fontWeight: 600,
+                color: "white",
+                background: "rgba(15, 44, 77, 0.85)",
+                padding: "2px 8px",
+                borderRadius: "4px",
+                border: `1px solid ${label.color}40`,
+                textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+              }}>
+                {label.text}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Loading Overlay */}
@@ -686,6 +725,116 @@ export default function XRMMirrorPage() {
             }} />
             Loading AR tracking models...
           </div>
+        </div>
+      )}
+
+      {/* Model Error Banner */}
+      {modelError && (
+        <div style={{
+          position: "absolute",
+          top: "5rem",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 20,
+          background: "rgba(254, 249, 242, 0.95)",
+          color: "#78350f",
+          padding: "1rem 1.5rem",
+          borderRadius: "10px",
+          fontSize: "0.85rem",
+          maxWidth: "90%",
+          textAlign: "center",
+          border: "1px solid #fed8b1",
+        }}>
+          <strong>⚠ 3D Models Not Found</strong>
+          <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.8rem" }}>
+            {modelError}
+          </p>
+        </div>
+      )}
+
+      {/* Error Banner */}
+      {error && (
+        <div style={{
+          position: "absolute",
+          top: "5rem",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 20,
+          background: "rgba(220, 38, 38, 0.9)",
+          color: "white",
+          padding: "0.75rem 1.5rem",
+          borderRadius: "10px",
+          fontSize: "0.9rem",
+          maxWidth: "90%",
+          textAlign: "center",
+        }}>
+          {error}
+        </div>
+      )}
+
+      {/* Camera Start Button (when off) */}
+      {!cameraOn && !loading && (
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 5,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "1.5rem",
+          background: "rgba(0,0,0,0.3)",
+        }}>
+          <Camera style={{ width: "64px", height: "64px", color: "rgba(255,255,255,0.5)" }} />
+          <h2 style={{ color: "white", margin: 0, fontSize: "1.5rem", textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}>
+            Start Camera for AR Experience
+          </h2>
+          <p style={{ color: "rgba(255,255,255,0.8)", margin: 0, maxWidth: "400px", textAlign: "center", textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
+            Position yourself 2-3 feet from the camera. Allow camera permissions when prompted.
+          </p>
+
+          {cameras.length > 0 && (
+            <select
+              value={selectedCamera}
+              onChange={(e) => setSelectedCamera(e.target.value)}
+              style={{
+                padding: "0.75rem 1rem",
+                borderRadius: "10px",
+                border: "1px solid rgba(255,255,255,0.3)",
+                background: "rgba(0,0,0,0.5)",
+                color: "white",
+                fontSize: "0.9rem",
+                maxWidth: "300px",
+              }}
+            >
+              {cameras.map((cam) => (
+                <option key={cam.deviceId} value={cam.deviceId} style={{ background: "#0F2C4D" }}>
+                  {cam.label}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <button
+            onClick={startCamera}
+            style={{
+              padding: "1rem 2rem",
+              borderRadius: "12px",
+              border: "none",
+              background: "linear-gradient(135deg, #0D9488, #14B8A6)",
+              color: "white",
+              fontSize: "1.1rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              boxShadow: "0 8px 30px rgba(20, 184, 166, 0.4)",
+            }}
+          >
+            <Camera style={{ width: "20px", height: "20px" }} />
+            Start Camera
+          </button>
         </div>
       )}
 
@@ -721,17 +870,16 @@ export default function XRMMirrorPage() {
             ← Home
           </Link>
           <div>
-            <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "white" }}>
+            <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "white", textShadow: "0 1px 3px rgba(0,0,0,0.5)" }}>
               X-Ray Mirror AR
             </h1>
-            <p style={{ margin: 0, fontSize: "0.75rem", color: "rgba(255,255,255,0.6)" }}>
+            <p style={{ margin: 0, fontSize: "0.75rem", color: "rgba(255,255,255,0.7)" }}>
               Real-time 3D anatomical visualization
             </p>
           </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          {/* Diagnostics */}
           <div style={{
             ...glassStyle,
             padding: "0.5rem 0.75rem",
@@ -773,92 +921,6 @@ export default function XRMMirrorPage() {
           </button>
         </div>
       </div>
-
-      {/* Error Banner */}
-      {error && (
-        <div style={{
-          position: "absolute",
-          top: "5rem",
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 20,
-          background: "rgba(220, 38, 38, 0.9)",
-          color: "white",
-          padding: "0.75rem 1.5rem",
-          borderRadius: "10px",
-          fontSize: "0.9rem",
-          maxWidth: "90%",
-          textAlign: "center",
-        }}>
-          {error}
-        </div>
-      )}
-
-      {/* Camera Start Button (when off) */}
-      {!cameraOn && !loading && (
-        <div style={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 5,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "1.5rem",
-          background: "rgba(0,0,0,0.5)",
-        }}>
-          <Camera style={{ width: "64px", height: "64px", color: "rgba(255,255,255,0.3)" }} />
-          <h2 style={{ color: "white", margin: 0, fontSize: "1.5rem" }}>
-            Start Camera for AR Experience
-          </h2>
-          <p style={{ color: "rgba(255,255,255,0.6)", margin: 0, maxWidth: "400px", textAlign: "center" }}>
-            Position yourself 2-3 feet from the camera. Allow camera permissions when prompted.
-          </p>
-
-          {cameras.length > 0 && (
-            <select
-              value={selectedCamera}
-              onChange={(e) => setSelectedCamera(e.target.value)}
-              style={{
-                padding: "0.75rem 1rem",
-                borderRadius: "10px",
-                border: "1px solid rgba(255,255,255,0.2)",
-                background: "rgba(255,255,255,0.1)",
-                color: "white",
-                fontSize: "0.9rem",
-                maxWidth: "300px",
-              }}
-            >
-              {cameras.map((cam) => (
-                <option key={cam.deviceId} value={cam.deviceId} style={{ background: "#0F2C4D" }}>
-                  {cam.label}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <button
-            onClick={startCamera}
-            style={{
-              padding: "1rem 2rem",
-              borderRadius: "12px",
-              border: "none",
-              background: "linear-gradient(135deg, #0D9488, #14B8A6)",
-              color: "white",
-              fontSize: "1.1rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              boxShadow: "0 8px 30px rgba(20, 184, 166, 0.4)",
-            }}
-          >
-            <Camera style={{ width: "20px", height: "20px" }} />
-            Start Camera
-          </button>
-        </div>
-      )}
 
       {/* Right HUD Panel - Controls */}
       {cameraOn && showControls && (
