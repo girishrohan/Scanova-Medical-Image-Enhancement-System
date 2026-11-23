@@ -18,12 +18,13 @@ import Link from "next/link";
 import { COLORS, APP_NAME, APP_VERSION, DISCLAIMER } from "@/lib/config";
 import { getAuth, clearAuth } from "@/lib/auth-context";
 import { useSharedImage } from "@/lib/image-context";
+import { analyzeImage, type AnalysisResult } from "@/lib/ai-analysis";
 
 export default function AIAnalysisPage() {
   const router = useRouter();
   const { image: sharedImage, setImage: setSharedImage } = useSharedImage();
   const [image, setImage] = useState<string | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState("");
 
@@ -67,21 +68,17 @@ export default function AIAnalysisPage() {
     if (!image) return;
     setAnalyzing(true);
     setError("");
-    
-    // Simulate AI analysis
-    setTimeout(() => {
-      setAnalysisResult({
-        findings: [
-          { type: "Normal anatomy", confidence: 98.5, risk: "low" },
-          { type: "No acute abnormalities", confidence: 95.2, risk: "low" },
-          { type: "Bone structures preserved", confidence: 92.1, risk: "low" },
-        ],
-        summary: "No significant abnormalities detected in the examined region.",
-        recommendations: "Continue routine follow-up as clinically indicated.",
-        processingTime: "1.2s",
-      });
+    setAnalysisResult(null);
+
+    try {
+      const result = await analyzeImage(image);
+      setAnalysisResult(result);
+    } catch (err) {
+      console.error("Analysis error:", err);
+      setError("Analysis failed. Please try a different image or check the file format.");
+    } finally {
       setAnalyzing(false);
-    }, 1200);
+    }
   };
 
   return (
@@ -361,6 +358,25 @@ export default function AIAnalysisPage() {
                 fontSize: "0.8rem",
               }}>
                 Processing Time: {analysisResult.processingTime}
+
+               <h4 style={{ color: COLORS.text, margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>Image Metrics</h4>
+               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", fontSize: "0.8rem", marginBottom: "1rem" }}>
+                 {[
+                   { label: "Dimensions", value: analysisResult.metrics.width + " x " + analysisResult.metrics.height },
+                   { label: "Mean Intensity", value: analysisResult.metrics.meanIntensity.toFixed(1) },
+                   { label: "Std Deviation", value: analysisResult.metrics.stdDev.toFixed(1) },
+                   { label: "Edge Density", value: (analysisResult.metrics.edgeDensity * 100).toFixed(1) + "%" },
+                   { label: "Contrast", value: (analysisResult.metrics.contrast * 100).toFixed(1) + "%" },
+                   { label: "Entropy", value: analysisResult.metrics.entropy.toFixed(2) },
+                   { label: "Dark Pixels", value: (analysisResult.metrics.darkPixelRatio * 100).toFixed(1) + "%" },
+                   { label: "Bright Pixels", value: (analysisResult.metrics.brightPixelRatio * 100).toFixed(1) + "%" },
+                 ].map((m) => (
+                   <div key={m.label} style={{ display: "flex", justifyContent: "space-between", padding: "0.35rem 0.5rem", background: "#f8fafc", borderRadius: "4px" }}>
+                     <span style={{ color: COLORS.muted }}>{m.label}</span>
+                     <span style={{ fontWeight: 500 }}>{m.value}</span>
+                   </div>
+                 ))}
+               </div>
               </p>
             </div>
           )}
