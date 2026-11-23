@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { FaceLandmarker, HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import {
   ArrowLeftRight,
@@ -12,8 +13,6 @@ import {
   Eye,
   EyeOff,
   Layers,
-  Maximize2,
-  Monitor,
   RotateCcw,
   ShieldCheck,
   SlidersHorizontal,
@@ -22,38 +21,82 @@ import {
 import { COLORS, APP_NAME, APP_VERSION, DISCLAIMER } from "@/lib/config";
 import { getAuth, clearAuth } from "@/lib/auth-context";
 
-type DisplayMode = "normal" | "xray" | "split";
+type DisplayMode = "normal" | "xray" | "split" | "lens";
 type CameraDevice = { deviceId: string; label: string };
 
 const LAYER_DEFS = [
-  { id: "skull", label: "Skull", color: "#e2e8f0", defaultOn: true },
-  { id: "brain", label: "Brain", color: "#f472b6", defaultOn: true },
-  { id: "facial", label: "Facial Muscles", color: "#fb923c", defaultOn: false },
-  { id: "eyes", label: "Eyes", color: "#38bdf8", defaultOn: true },
-  { id: "hands", label: "Hand Bones", color: "#a78bfa", defaultOn: false },
+  { id: "skull", label: "Skull", color: "#e2e8f0", defaultOn: true, model: "/models/skull.glb" },
+  { id: "brain", label: "Brain", color: "#f472b6", defaultOn: true, model: "/models/brain.glb" },
+  { id: "facial", label: "Facial Muscles", color: "#fb923c", defaultOn: false, model: "/models/facial.glb" },
+  { id: "eyes", label: "Eyes", color: "#38bdf8", defaultOn: true, model: "/models/eyes.glb" },
+  { id: "hands", label: "Hand Bones", color: "#a78bfa", defaultOn: false, model: "/models/hands.glb" },
 ];
+
+// Fresnel X-Ray shader
+const xrayVertexShader = `
+  varying vec3 vNormal;
+  varying vec3 vViewPosition;
+  void main() {
+    vNormal = normalize(normalMatrix * normal);
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    vViewPosition = -mvPosition.xyz;
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+
+const xrayFragmentShader = `
+  uniform vec3 color;
+  uniform float opacity;
+  uniform float fresnelPower;
+  uniform float glowIntensity;
+  varying vec3 vNormal;
+  varying vec3 vViewPosition;
+  void main() {
+    vec3 viewDir = normalize(vViewPosition);
+    float fresnel = pow(1.0 - abs(dot(vNormal, viewDir)), fresnelPower);
+    vec3 finalColor = color * (0.3 + fresnel * glowIntensity);
+    float alpha = opacity * (0.15 + fresnel * 0.85);
+    gl_FragColor = vec4(finalColor, alpha);
+  }
+`;
+
+// Solid anatomy shader
+const solidFragmentShader = `
+  uniform vec3 color;
+  uniform float opacity;
+  varying vec3 vNormal;
+  varying vec3 vViewPosition;
+  void main() {
+    vec3 viewDir = normalize(vViewPosition);
+    float diffuse = max(dot(vNormal, vec3(0.0, 1.0, 0.0)), 0.0) * 0.4 + 0.6;
+    vec3 finalColor = color * diffuse;
+    gl_FragColor = vec4(finalColor, opacity);
+  }
+`;
 
 export default function XRMMirrorPage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const threeContainerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const anatomicalGroupRef = useRef<THREE.Group | null>(null);
-  const meshRefs = useRef<Record<string, THREE.Mesh>>({});
+  const meshGroupRefs = useRef<Record<string, THREE.Group>>({});
   const faceLandmarkerRef = useRef<any>(null);
   const handLandmarkerRef = useRef<any>(null);
   const animFrameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const fpsFramesRef = useRef<number[]>([]);
   const lastTimestampRef = useRef<number>(0);
+  const gltfLoaderRef = useRef<GLTFLoader | null>(null);
 
   const [cameraOn, setCameraOn] = useState(false);
   const [error, setError] = useState("");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("xray");
+  const [renderMode, setRenderMode] = useState<"xray" | "solid">("xray");
   const [transparency, setTransparency] = useState(70);
+  const [lensSize, setLensSize] = useState(60);
   const [layers, setLayers] = useState<Record<string, boolean>>(
     Object.fromEntries(LAYER_DEFS.map((l) => [l.id, l.defaultOn]))
   );
@@ -65,6 +108,7 @@ export default function XRMMirrorPage() {
   const [resolution, setResolution] = useState("—");
   const [loading, setLoading] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
 
   // Auth check
   useEffect(() => {
@@ -75,8 +119,7 @@ export default function XRMMirrorPage() {
     }
   }, [router]);
 
-  // Suppress benign MediaPipe/Emscripten XNNPACK INFO logs that Next.js Turbopack
-  // surfaces as console.error overlay. Real errors still pass through.
+  // Suppress benign MediaPipe/Emscripten XNNPACK INFO logs
   useEffect(() => {
     const XNNPACK_MSG = "INFO: Created TensorFlow Lite XNNPACK delegate for CPU.";
     const originalError = console.error;
@@ -84,10 +127,7 @@ export default function XRMMirrorPage() {
     const originalLog = console.log;
 
     const filter = (args: any[]) =>
-      args.some(
-        (a) =>
-          typeof a === "string" && a.includes(XNNPACK_MSG)
-      );
+      args.some((a) => typeof a === "string" && a.includes(XNNPACK_MSG));
 
     console.error = (...args: any[]) => {
       if (filter(args)) return;
@@ -114,7 +154,7 @@ export default function XRMMirrorPage() {
     router.push("/login");
   };
 
-  // Load MediaPipe scripts
+  // Load MediaPipe
   const loadMediaPipe = useCallback(async () => {
     if (faceLandmarkerRef.current) return;
     setLoading(true);
@@ -172,8 +212,122 @@ export default function XRMMirrorPage() {
     }
   }, [selectedCamera]);
 
+  // Create X-Ray material
+  const createXRayMaterial = useCallback((color: number, opacity: number) => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        color: { value: new THREE.Color(color) },
+        opacity: { value: opacity },
+        fresnelPower: { value: 2.5 },
+        glowIntensity: { value: 1.8 },
+      },
+      vertexShader: xrayVertexShader,
+      fragmentShader: xrayFragmentShader,
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+  }, []);
+
+  // Create Solid material
+  const createSolidMaterial = useCallback((color: number, opacity: number) => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        color: { value: new THREE.Color(color) },
+        opacity: { value: opacity },
+      },
+      vertexShader: xrayVertexShader,
+      fragmentShader: solidFragmentShader,
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: true,
+    });
+  }, []);
+
+  // Create procedural fallback meshes
+  const createFallbackMesh = useCallback((id: string): THREE.Group => {
+    const group = new THREE.Group();
+    group.name = id;
+
+    switch (id) {
+      case "skull": {
+        const geo = new THREE.SphereGeometry(1.2, 32, 32);
+        geo.scale(1, 1.15, 1.05);
+        const mesh = new THREE.Mesh(geo, createXRayMaterial(0xe2e8f0, 0.2));
+        mesh.name = "skull";
+        group.add(mesh);
+        break;
+      }
+      case "brain": {
+        const geo = new THREE.SphereGeometry(0.85, 32, 32);
+        geo.scale(0.9, 0.95, 0.85);
+        const mesh = new THREE.Mesh(geo, createXRayMaterial(0xf472b6, 0.3));
+        mesh.name = "brain";
+        group.add(mesh);
+        break;
+      }
+      case "facial": {
+        const geo = new THREE.TorusGeometry(0.6, 0.12, 16, 32);
+        const mesh = new THREE.Mesh(geo, createXRayMaterial(0xfb923c, 0.35));
+        mesh.name = "facial";
+        mesh.rotation.x = Math.PI / 2;
+        group.add(mesh);
+        break;
+      }
+      case "eyes": {
+        const geo = new THREE.SphereGeometry(0.12, 16, 16);
+        const leftEye = new THREE.Mesh(geo, createXRayMaterial(0x38bdf8, 0.5));
+        leftEye.name = "leftEye";
+        leftEye.position.set(-0.3, 0.1, 0.85);
+        const rightEye = new THREE.Mesh(geo.clone(), createXRayMaterial(0x38bdf8, 0.5));
+        rightEye.name = "rightEye";
+        rightEye.position.set(0.3, 0.1, 0.85);
+        group.add(leftEye);
+        group.add(rightEye);
+        break;
+      }
+      case "hands": {
+        for (let i = 0; i < 5; i++) {
+          const geo = new THREE.CylinderGeometry(0.025, 0.025, 0.5, 8);
+          const mesh = new THREE.Mesh(geo, createXRayMaterial(0xa78bfa, 0.4));
+          mesh.name = `finger${i}`;
+          mesh.position.set((i - 2) * 0.12, -1.5, 0);
+          mesh.rotation.z = (i - 2) * 0.08;
+          group.add(mesh);
+        }
+        break;
+      }
+    }
+    return group;
+  }, [createXRayMaterial]);
+
+  // Load GLB model with fallback
+  const loadModel = useCallback(async (id: string, path: string): Promise<THREE.Group> => {
+    if (!gltfLoaderRef.current) {
+      gltfLoaderRef.current = new GLTFLoader();
+    }
+    try {
+      const gltf = await new Promise<any>((resolve, reject) => {
+        gltfLoaderRef.current!.load(path, resolve, undefined, reject);
+      });
+      const model = gltf.scene;
+      model.name = id;
+      // Apply X-Ray material to all meshes
+      model.traverse((child: any) => {
+        if (child.isMesh) {
+          child.material = createXRayMaterial(0xffffff, 0.25);
+        }
+      });
+      return model;
+    } catch (err) {
+      console.warn(`Model ${path} not found, using procedural fallback for ${id}`);
+      return createFallbackMesh(id);
+    }
+  }, [createXRayMaterial, createFallbackMesh]);
+
   // Initialize Three.js scene
-  const initThree = useCallback(() => {
+  const initThree = useCallback(async () => {
     if (!threeContainerRef.current || rendererRef.current) return;
 
     const container = threeContainerRef.current;
@@ -211,58 +365,15 @@ export default function XRMMirrorPage() {
     anatomicalGroupRef.current = group;
     scene.add(group);
 
-    // Create anatomical meshes (simplified geometric representations)
-    // Skull - sphere
-    const skullGeo = new THREE.SphereGeometry(1.2, 32, 32);
-    const skullMat = createXRayMaterial(0xe2e8f0, 0.15);
-    const skull = new THREE.Mesh(skullGeo, skullMat);
-    skull.name = "skull";
-    meshRefs.current.skull = skull;
-    group.add(skull);
-
-    // Brain - slightly smaller sphere inside
-    const brainGeo = new THREE.SphereGeometry(0.9, 32, 32);
-    const brainMat = createXRayMaterial(0xf472b6, 0.25);
-    const brain = new THREE.Mesh(brainGeo, brainMat);
-    brain.name = "brain";
-    brain.scale.set(0.85, 0.9, 0.85);
-    meshRefs.current.brain = brain;
-    group.add(brain);
-
-    // Facial muscles - torus-like
-    const facialGeo = new THREE.TorusGeometry(0.7, 0.15, 16, 32);
-    const facialMat = createXRayMaterial(0xfb923c, 0.3);
-    const facial = new THREE.Mesh(facialGeo, facialMat);
-    facial.name = "facial";
-    facial.rotation.x = Math.PI / 2;
-    facial.position.z = 0.3;
-    meshRefs.current.facial = facial;
-    group.add(facial);
-
-    // Eyes - two small spheres
-    const eyeGeo = new THREE.SphereGeometry(0.15, 16, 16);
-    const eyeMat = createXRayMaterial(0x38bdf8, 0.4);
-    const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-    leftEye.name = "leftEye";
-    leftEye.position.set(-0.3, 0.1, 0.9);
-    const rightEye = new THREE.Mesh(eyeGeo, eyeMat.clone());
-    rightEye.name = "rightEye";
-    rightEye.position.set(0.3, 0.1, 0.9);
-    meshRefs.current.eyes = leftEye;
-    group.add(leftEye);
-    group.add(rightEye);
-
-    // Hand bones - finger cylinders
-    const fingerGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.6, 8);
-    const fingerMat = createXRayMaterial(0xa78bfa, 0.35);
-    for (let i = 0; i < 5; i++) {
-      const finger = new THREE.Mesh(fingerGeo, fingerMat.clone());
-      finger.name = `finger${i}`;
-      finger.position.set((i - 2) * 0.15, -1.5, 0);
-      finger.rotation.z = (i - 2) * 0.1;
-      meshRefs.current[`finger${i}`] = finger;
-      group.add(finger);
+    // Load models for each layer
+    for (const layer of LAYER_DEFS) {
+      const modelGroup = await loadModel(layer.id, layer.model);
+      modelGroup.visible = layers[layer.id];
+      meshGroupRefs.current[layer.id] = modelGroup;
+      group.add(modelGroup);
     }
+
+    setModelsLoaded(true);
 
     // Resize handler
     const handleResize = () => {
@@ -278,25 +389,7 @@ export default function XRMMirrorPage() {
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, []);
-
-  // X-Ray material with Fresnel shader
-  function createXRayMaterial(color: number, baseOpacity: number): THREE.MeshPhysicalMaterial {
-    const mat = new THREE.MeshPhysicalMaterial({
-      color: color,
-      transparent: true,
-      opacity: baseOpacity,
-      roughness: 0.2,
-      metalness: 0.1,
-      transmission: 0.6,
-      thickness: 0.5,
-      ior: 1.5,
-      emissive: color,
-      emissiveIntensity: 0.15,
-      side: THREE.DoubleSide,
-    });
-    return mat;
-  }
+  }, [layers, loadModel]);
 
   // Start camera
   const startCamera = async () => {
@@ -304,6 +397,7 @@ export default function XRMMirrorPage() {
     setLoading(true);
     try {
       await loadMediaPipe();
+      await enumerateCameras();
 
       const constraints: MediaStreamConstraints = {
         video: selectedCamera
@@ -323,7 +417,7 @@ export default function XRMMirrorPage() {
         setResolution(`${settings.width || "?"}×${settings.height || "?"}`);
 
         // Init Three.js
-        initThree();
+        await initThree();
 
         // Start render loop
         startRenderLoop();
@@ -348,6 +442,7 @@ export default function XRMMirrorPage() {
     setCameraOn(false);
     setFaceLocked(false);
     setHandLocked(false);
+    lastTimestampRef.current = 0;
   };
 
   // Render loop with tracking
@@ -368,7 +463,7 @@ export default function XRMMirrorPage() {
       const video = videoRef.current;
       if (!video || video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) return;
 
-      // Compute a strictly increasing timestamp for MediaPipe
+      // Compute strictly increasing timestamp for MediaPipe
       const timestamp = Math.max(now, lastTimestampRef.current + 1);
       lastTimestampRef.current = timestamp;
 
@@ -385,25 +480,24 @@ export default function XRMMirrorPage() {
             if (results.facialTransformationMatrixes && results.facialTransformationMatrixes.length > 0) {
               const matrix = results.facialTransformationMatrixes[0].data;
               if (anatomicalGroupRef.current) {
-                // Apply smooth lerp to position and rotation
+                // Apply 4x4 matrix with smooth lerp
                 const group = anatomicalGroupRef.current;
-                // Extract position from matrix (simplified)
-                const tx = matrix[3] * 0.5;
-                const ty = -matrix[7] * 0.5;
-                const tz = matrix[11] * 0.3;
+                const tx = matrix[12] * 0.5;
+                const ty = -matrix[13] * 0.5;
+                const tz = matrix[14] * 0.3;
 
                 group.position.x += (tx - group.position.x) * 0.15;
                 group.position.y += (ty - group.position.y) * 0.15;
                 group.position.z += (tz - group.position.z) * 0.15;
 
-                // Tilt from landmark positions
-                const noseTip = landmarks[1];
-                const leftEye = landmarks[33];
-                const rightEye = landmarks[263];
-                const tiltX = (leftEye.y - rightEye.y) * 2;
-                const tiltY = (noseTip.x - 0.5) * 2;
-                group.rotation.x += (tiltX - group.rotation.x) * 0.1;
-                group.rotation.y += (tiltY - group.rotation.y) * 0.1;
+                // Extract rotation from matrix (simplified Euler)
+                const rotX = Math.atan2(matrix[9], matrix[10]);
+                const rotY = Math.atan2(-matrix[8], Math.sqrt(matrix[9] * matrix[9] + matrix[10] * matrix[10]));
+                const rotZ = Math.atan2(matrix[4], matrix[0]);
+
+                group.rotation.x += (rotX - group.rotation.x) * 0.1;
+                group.rotation.y += (rotY - group.rotation.y) * 0.1;
+                group.rotation.z += (rotZ - group.rotation.z) * 0.1;
               }
             }
           }
@@ -419,12 +513,15 @@ export default function XRMMirrorPage() {
           const handFound = !!(results.landmarks && results.landmarks.length > 0);
           setHandLocked((prev) => (prev === handFound ? prev : handFound));
           if (handFound) {
-            // Update finger positions based on hand landmarks
             const hand = results.landmarks[0];
-            if (anatomicalGroupRef.current) {
-              // Map index finger tip to interactive point
-              const indexTip = hand[8];
-              // Could add interactive highlighting here
+            // Update hand bone positions
+            const handsGroup = meshGroupRefs.current.hands;
+            if (handsGroup && hand.length >= 21) {
+              // Map wrist and finger positions
+              const wrist = hand[0];
+              handsGroup.position.x = (wrist.x - 0.5) * 2;
+              handsGroup.position.y = -(wrist.y - 0.5) * 2;
+              handsGroup.position.z = wrist.z * 2;
             }
           }
         } catch (e) {
@@ -434,32 +531,36 @@ export default function XRMMirrorPage() {
 
       // Update layer visibility
       Object.entries(layers).forEach(([id, visible]) => {
-        const mesh = meshRefs.current[id];
-        if (mesh) mesh.visible = visible;
-        if (id === "eyes") {
-          const leftEye = meshRefs.current.eyes;
-          const rightEye = sceneRef.current?.children.find(
-            (c) => c.name === "rightEye"
-          ) as THREE.Mesh;
-          if (leftEye) leftEye.visible = visible;
-          if (rightEye) rightEye.visible = visible;
-        }
-        if (id === "hands") {
-          for (let i = 0; i < 5; i++) {
-            const finger = meshRefs.current[`finger${i}`];
-            if (finger) finger.visible = visible;
-          }
-        }
+        const group = meshGroupRefs.current[id];
+        if (group) group.visible = visible;
       });
 
-      // Update transparency
+      // Update material mode and transparency
       const opacityFactor = transparency / 100;
-      Object.values(meshRefs.current).forEach((mesh) => {
-        if (mesh.material) {
-          const mat = mesh.material as THREE.MeshPhysicalMaterial;
-          mat.opacity = Math.max(0.05, mat.opacity * 0 + opacityFactor * 0.6);
-          mat.emissiveIntensity = 0.1 + opacityFactor * 0.3;
-        }
+      Object.values(meshGroupRefs.current).forEach((group) => {
+        group.traverse((child: any) => {
+          if (child.isMesh && child.material) {
+            const mat = child.material as THREE.ShaderMaterial;
+            if (mat.uniforms) {
+              if (mat.uniforms.opacity) {
+                mat.uniforms.opacity.value = opacityFactor * 0.6;
+              }
+              if (renderMode === "solid" && mat.fragmentShader !== solidFragmentShader) {
+                // Switch to solid shader
+                mat.fragmentShader = solidFragmentShader;
+                mat.blending = THREE.NormalBlending;
+                mat.depthWrite = true;
+                mat.needsUpdate = true;
+              } else if (renderMode === "xray" && mat.fragmentShader !== xrayFragmentShader) {
+                // Switch to xray shader
+                mat.fragmentShader = xrayFragmentShader;
+                mat.blending = THREE.AdditiveBlending;
+                mat.depthWrite = false;
+                mat.needsUpdate = true;
+              }
+            }
+          }
+        });
       });
 
       // Render
@@ -469,7 +570,7 @@ export default function XRMMirrorPage() {
     };
 
     render();
-  }, [layers, transparency]);
+  }, [layers, transparency, renderMode]);
 
   // Cleanup
   useEffect(() => {
@@ -499,9 +600,9 @@ export default function XRMMirrorPage() {
     setLayers((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // HUD glassmorphic style
+  // Glassmorphic HUD style
   const glassStyle: React.CSSProperties = {
-    background: "rgba(15, 44, 77, 0.7)",
+    background: "rgba(15, 44, 77, 0.75)",
     backdropFilter: "blur(20px)",
     border: "1px solid rgba(255, 255, 255, 0.15)",
     borderRadius: "16px",
@@ -531,7 +632,7 @@ export default function XRMMirrorPage() {
           objectFit: "cover",
           zIndex: 1,
           transform: "scaleX(-1)",
-          opacity: displayMode === "normal" ? 1 : displayMode === "split" ? 0.5 : 0.3,
+          opacity: displayMode === "normal" ? 1 : displayMode === "split" ? 0.5 : 0.35,
           transition: "opacity 0.3s ease",
         }}
       />
@@ -548,6 +649,17 @@ export default function XRMMirrorPage() {
           transition: "opacity 0.3s ease",
         }}
       />
+
+      {/* Radial lens mask overlay (CSS-based soft feather) */}
+      {displayMode === "lens" && cameraOn && (
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 3,
+          pointerEvents: "none",
+          background: `radial-gradient(circle at 50% 50%, transparent ${lensSize * 0.6}%, rgba(0,0,0,0.7) ${lensSize}%)`,
+        }} />
+      )}
 
       {/* Loading Overlay */}
       {loading && (
@@ -613,7 +725,7 @@ export default function XRMMirrorPage() {
               X-Ray Mirror AR
             </h1>
             <p style={{ margin: 0, fontSize: "0.75rem", color: "rgba(255,255,255,0.6)" }}>
-              Real-time anatomical visualization
+              Real-time 3D anatomical visualization
             </p>
           </div>
         </div>
@@ -640,6 +752,9 @@ export default function XRMMirrorPage() {
             <span style={{ color: "rgba(255,255,255,0.7)" }}>
               {resolution}
             </span>
+            {modelsLoaded && (
+              <span style={{ color: "#4ade80" }}>● Models: OK</span>
+            )}
           </div>
 
           <button
@@ -753,23 +868,25 @@ export default function XRMMirrorPage() {
           top: "50%",
           transform: "translateY(-50%)",
           zIndex: 10,
-          width: "260px",
+          width: "280px",
           display: "flex",
           flexDirection: "column",
           gap: "0.75rem",
+          maxHeight: "80vh",
+          overflowY: "auto",
         }}>
           {/* Display Mode */}
           <div style={glassStyle}>
             <h3 style={{ margin: "0 0 0.75rem 0", fontSize: "0.9rem", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>
               Display Mode
             </h3>
-            <div style={{ display: "flex", gap: "0.25rem" }}>
-              {(["normal", "xray", "split"] as DisplayMode[]).map((mode) => (
+            <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
+              {(["normal", "xray", "split", "lens"] as DisplayMode[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setDisplayMode(mode)}
                   style={{
-                    flex: 1,
+                    flex: "1 1 45%",
                     padding: "0.5rem 0.25rem",
                     borderRadius: "8px",
                     border: "none",
@@ -781,7 +898,36 @@ export default function XRMMirrorPage() {
                     textTransform: "capitalize",
                   }}
                 >
-                  {mode === "normal" ? "Normal" : mode === "xray" ? "X-Ray" : "Split"}
+                  {mode === "normal" ? "Normal" : mode === "xray" ? "X-Ray" : mode === "split" ? "Split" : "Lens"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Render Mode */}
+          <div style={glassStyle}>
+            <h3 style={{ margin: "0 0 0.75rem 0", fontSize: "0.9rem", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>
+              Render Mode
+            </h3>
+            <div style={{ display: "flex", gap: "0.25rem" }}>
+              {(["xray", "solid"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setRenderMode(mode)}
+                  style={{
+                    flex: 1,
+                    padding: "0.5rem",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: renderMode === mode ? COLORS.blue : "rgba(255,255,255,0.1)",
+                    color: "white",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {mode === "xray" ? "X-Ray" : "Solid"}
                 </button>
               ))}
             </div>
@@ -801,6 +947,23 @@ export default function XRMMirrorPage() {
               style={{ width: "100%", accentColor: COLORS.teal }}
             />
           </div>
+
+          {/* Lens Size (only in lens mode) */}
+          {displayMode === "lens" && (
+            <div style={glassStyle}>
+              <h3 style={{ margin: "0 0 0.75rem 0", fontSize: "0.9rem", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>
+                Lens Size: {lensSize}%
+              </h3>
+              <input
+                type="range"
+                min="20"
+                max="90"
+                value={lensSize}
+                onChange={(e) => setLensSize(Number(e.target.value))}
+                style={{ width: "100%", accentColor: COLORS.teal }}
+              />
+            </div>
+          )}
 
           {/* Anatomical Layers */}
           <div style={glassStyle}>
@@ -890,6 +1053,34 @@ export default function XRMMirrorPage() {
         </div>
       )}
 
+      {/* Toggle Controls Button */}
+      {cameraOn && (
+        <button
+          onClick={() => setShowControls(!showControls)}
+          style={{
+            position: "absolute",
+            right: showControls ? "290px" : "1rem",
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 11,
+            width: "32px",
+            height: "32px",
+            borderRadius: "50%",
+            border: "1px solid rgba(255,255,255,0.2)",
+            background: "rgba(15, 44, 77, 0.7)",
+            color: "white",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "0.8rem",
+            transition: "right 0.3s ease",
+          }}
+        >
+          {showControls ? "›" : "‹"}
+        </button>
+      )}
+
       {/* Bottom HUD - Disclaimer & Attribution */}
       <div style={{
         position: "absolute",
@@ -921,41 +1112,9 @@ export default function XRMMirrorPage() {
         </p>
       </div>
 
-      {/* Toggle Controls Button */}
-      {cameraOn && (
-        <button
-          onClick={() => setShowControls(!showControls)}
-          style={{
-            position: "absolute",
-            right: showControls ? "280px" : "1rem",
-            top: "50%",
-            transform: "translateY(-50%)",
-            zIndex: 11,
-            width: "32px",
-            height: "32px",
-            borderRadius: "50%",
-            border: "1px solid rgba(255,255,255,0.2)",
-            background: "rgba(15, 44, 77, 0.7)",
-            color: "white",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "0.8rem",
-            transition: "right 0.3s ease",
-          }}
-        >
-          {showControls ? "›" : "‹"}
-        </button>
-      )}
-
       <style jsx>{`
         @keyframes spin {
           to { transform: rotate(360deg); }
-        }
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-20px); }
         }
       `}</style>
     </div>
