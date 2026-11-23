@@ -96,6 +96,7 @@ export default function XRMMirrorPage() {
   const fpsFramesRef = useRef<number[]>([]);
   const lastTimestampRef = useRef<number>(0);
   const gltfLoaderRef = useRef<GLTFLoader | null>(null);
+  const isCancelledRef = useRef(false);
 
   // Refs for render loop (avoid stale closures)
   const displayModeRef = useRef<DisplayMode>("xray");
@@ -156,7 +157,10 @@ export default function XRMMirrorPage() {
     const originalLog = console.log;
 
     const filter = (args: any[]) =>
-      args.some((a) => typeof a === "string" && a.includes(XNNPACK_MSG));
+      args.some((a) => {
+        if (typeof a !== "string") return false;
+        return a.includes(XNNPACK_MSG) || a.includes("AbortError");
+      });
 
     console.error = (...args: any[]) => {
       if (filter(args)) return;
@@ -427,6 +431,7 @@ export default function XRMMirrorPage() {
 
   // Start camera
   const startCamera = async () => {
+    isCancelledRef.current = false;
     setError("");
     setLoading(true);
     try {
@@ -441,16 +446,23 @@ export default function XRMMirrorPage() {
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       await enumerateCameras();
-      if (videoRef.current) {
+      if (videoRef.current && !isCancelledRef.current) {
         videoRef.current.srcObject = stream;
         // Guard against React Strict Mode double-mount
-        if (videoRef.current.srcObject !== stream) return;
+        if (videoRef.current.srcObject !== stream || isCancelledRef.current) return;
         // Wait for metadata if needed
         if (videoRef.current.readyState < 1) {
-          await new Promise<void>((resolve) => {
-            videoRef.current!.addEventListener("loadedmetadata", () => resolve(), { once: true });
+          await new Promise<void>((resolve, reject) => {
+            const handler = () => resolve();
+            videoRef.current!.addEventListener("loadedmetadata", handler, { once: true });
+            // Timeout fallback
+            setTimeout(() => {
+              videoRef.current?.removeEventListener("loadedmetadata", handler);
+              resolve();
+            }, 3000);
           });
         }
+        if (isCancelledRef.current || videoRef.current.srcObject !== stream) return;
         try {
           await videoRef.current.play();
         } catch (playErr) {
@@ -460,6 +472,7 @@ export default function XRMMirrorPage() {
           }
           return;
         }
+        if (isCancelledRef.current) return;
         setCameraOn(true);
 
         const track = stream.getVideoTracks()[0];
@@ -470,8 +483,10 @@ export default function XRMMirrorPage() {
         startRenderLoop();
       }
     } catch (err) {
-      console.error("Camera error:", err);
-      setError("Could not access camera. Please allow camera permissions and try again.");
+      if ((err as Error)?.name !== "AbortError") {
+        console.error("Camera error:", err);
+        setError("Could not access camera. Please allow camera permissions and try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -479,6 +494,7 @@ export default function XRMMirrorPage() {
 
   // Cleanup function for unmount
   const cleanupCamera = useCallback(() => {
+    isCancelledRef.current = true;
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach((track) => track.stop());
