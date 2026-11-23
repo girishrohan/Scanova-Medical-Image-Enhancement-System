@@ -358,6 +358,7 @@ export default function AIAnalysisPage() {
                 fontSize: "0.8rem",
               }}>
                 Processing Time: {analysisResult.processingTime}
+               </p>
 
                <h4 style={{ color: COLORS.text, margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>Image Metrics</h4>
                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", fontSize: "0.8rem", marginBottom: "1rem" }}>
@@ -377,7 +378,6 @@ export default function AIAnalysisPage() {
                    </div>
                  ))}
                </div>
-              </p>
             </div>
           )}
 
