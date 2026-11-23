@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { FaceLandmarker, HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import { FaceLandmarker, HandLandmarker, PoseLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import {
   Camera,
 } from "lucide-react";
@@ -29,6 +29,9 @@ const LAYER_DEFS = [
   { id: "brain", label: "Brain (Cerebrum)", color: "#ff9fc0", defaultOn: true, model: "/models/brain.glb" },
   { id: "facial", label: "Facial Muscles", color: "#ff6b5e", defaultOn: false, model: "/models/facial.glb" },
   { id: "eyes", label: "Eyes / Orbits", color: "#fff3a8", defaultOn: true, model: "/models/eyes.glb" },
+  { id: "chest", label: "Ribcage / Chest", color: "#7fd1ff", defaultOn: true, model: "/models/chest.glb" },
+  { id: "heart", label: "Heart", color: "#ff4d6d", defaultOn: true, model: "/models/heart.glb" },
+  { id: "lungs", label: "Lungs", color: "#80ed99", defaultOn: true, model: "/models/lungs.glb" },
   { id: "hands", label: "Hand Bones", color: "#d9f0ff", defaultOn: false, model: "/models/hands.glb" },
 ];
 
@@ -78,22 +81,23 @@ export default function XRMMirrorPage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const threeContainerRef = useRef<HTMLDivElement>(null);
-  const labelCanvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const anatomicalGroupRef = useRef<THREE.Group | null>(null);
+  const chestGroupRef = useRef<THREE.Group | null>(null);
+  const handsGroupRef = useRef<THREE.Group | null>(null);
   const meshGroupRefs = useRef<Record<string, THREE.Group>>({});
   const faceLandmarkerRef = useRef<any>(null);
   const handLandmarkerRef = useRef<any>(null);
+  const poseLandmarkerRef = useRef<any>(null);
   const animFrameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const fpsFramesRef = useRef<number[]>([]);
   const lastTimestampRef = useRef<number>(0);
   const gltfLoaderRef = useRef<GLTFLoader | null>(null);
-  const modelVertexCounts = useRef<Record<string, number>>({});
 
-  // State kept in refs for the render loop (avoids stale closures)
+  // Refs for render loop (avoid stale closures)
   const displayModeRef = useRef<DisplayMode>("xray");
   const layersRef = useRef<Record<string, boolean>>(
     Object.fromEntries(LAYER_DEFS.map((l) => [l.id, l.defaultOn]))
@@ -103,7 +107,9 @@ export default function XRMMirrorPage() {
   const lensPosRef = useRef({ x: 50, y: 50 });
   const lensSizeRef = useRef(60);
 
-  // React state for UI
+  // AR label state
+  const [arLabels, setArLabels] = useState<ArLabel[]>([]);
+
   const [cameraOn, setCameraOn] = useState(false);
   const [error, setError] = useState("");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("xray");
@@ -119,6 +125,7 @@ export default function XRMMirrorPage() {
   const [fps, setFps] = useState(0);
   const [faceLocked, setFaceLocked] = useState(false);
   const [handLocked, setHandLocked] = useState(false);
+  const [poseLocked, setPoseLocked] = useState(false);
   const [resolution, setResolution] = useState("—");
   const [loading, setLoading] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -147,17 +154,36 @@ export default function XRMMirrorPage() {
     const originalError = console.error;
     const originalWarn = console.warn;
     const originalLog = console.log;
+
     const filter = (args: any[]) =>
       args.some((a) => typeof a === "string" && a.includes(XNNPACK_MSG));
-    console.error = (...args: any[]) => { if (!filter(args)) originalError.apply(console, args); };
-    console.warn = (...args: any[]) => { if (!filter(args)) originalWarn.apply(console, args); };
-    console.log = (...args: any[]) => { if (!filter(args)) originalLog.apply(console, args); };
-    return () => { console.error = originalError; console.warn = originalWarn; console.log = originalLog; };
+
+    console.error = (...args: any[]) => {
+      if (filter(args)) return;
+      originalError.apply(console, args);
+    };
+    console.warn = (...args: any[]) => {
+      if (filter(args)) return;
+      originalWarn.apply(console, args);
+    };
+    console.log = (...args: any[]) => {
+      if (filter(args)) return;
+      originalLog.apply(console, args);
+    };
+
+    return () => {
+      console.error = originalError;
+      console.warn = originalWarn;
+      console.log = originalLog;
+    };
   }, []);
 
-  const handleLogout = () => { clearAuth(); router.push("/login"); };
+  const handleLogout = () => {
+    clearAuth();
+    router.push("/login");
+  };
 
-  // ───── Load MediaPipe ─────
+  // Load MediaPipe (Face + Hand + Pose)
   const loadMediaPipe = useCallback(async () => {
     if (faceLandmarkerRef.current) return;
     setLoading(true);
@@ -166,9 +192,11 @@ export default function XRMMirrorPage() {
       const filesetResolver = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
       );
+
       faceLandmarkerRef.current = await FaceLandmarker.createFromOptions(filesetResolver, {
         baseOptions: {
-          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
           delegate: "GPU",
         },
         outputFaceBlendshapes: false,
@@ -176,13 +204,25 @@ export default function XRMMirrorPage() {
         runningMode: "VIDEO",
         numFaces: 1,
       });
+
       handLandmarkerRef.current = await HandLandmarker.createFromOptions(filesetResolver, {
         baseOptions: {
-          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
           delegate: "GPU",
         },
         runningMode: "VIDEO",
         numHands: 2,
+      });
+
+      poseLandmarkerRef.current = await PoseLandmarker.createFromOptions(filesetResolver, {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+          delegate: "GPU",
+        },
+        runningMode: "VIDEO",
+        numPoses: 1,
       });
     } catch (err) {
       console.error("MediaPipe load error:", err);
@@ -192,13 +232,16 @@ export default function XRMMirrorPage() {
     }
   }, []);
 
-  // ───── Enumerate cameras ─────
+  // Enumerate cameras
   const enumerateCameras = useCallback(async () => {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices
         .filter((d) => d.kind === "videoinput")
-        .map((d, i) => ({ deviceId: d.deviceId, label: d.label || `Camera ${i + 1}` }));
+        .map((d, i) => ({
+          deviceId: d.deviceId,
+          label: d.label || `Camera ${i + 1}`,
+        }));
       setCameras(videoDevices);
       if (videoDevices.length > 0 && !selectedCamera) {
         setSelectedCamera(videoDevices[0].deviceId);
@@ -208,7 +251,7 @@ export default function XRMMirrorPage() {
     }
   }, [selectedCamera]);
 
-  // ───── Material factories ─────
+  // Create X-Ray material
   const createXRayMaterial = useCallback((color: number, opacity: number) => {
     return new THREE.ShaderMaterial({
       uniforms: {
@@ -226,6 +269,7 @@ export default function XRMMirrorPage() {
     });
   }, []);
 
+  // Create Solid material
   const createSolidMaterial = useCallback((color: number, opacity: number) => {
     return new THREE.ShaderMaterial({
       uniforms: {
@@ -240,125 +284,44 @@ export default function XRMMirrorPage() {
     });
   }, []);
 
-  // ───── Load a real GLB model (NO procedural fallback) ─────
+  // Load GLB model (NO procedural fallbacks)
   const loadModel = useCallback(async (id: string, path: string): Promise<THREE.Group | null> => {
-    if (!gltfLoaderRef.current) gltfLoaderRef.current = new GLTFLoader();
+    if (!gltfLoaderRef.current) {
+      gltfLoaderRef.current = new GLTFLoader();
+    }
     try {
       const gltf = await new Promise<any>((resolve, reject) => {
         gltfLoaderRef.current!.load(path, resolve, undefined, reject);
       });
-      const model = gltf.scene as THREE.Group;
+      const model = gltf.scene;
       model.name = id;
-
-      // Count vertices to verify real mesh
-      let vertCount = 0;
-      const layerDef = LAYER_DEFS.find((l) => l.id === id);
-      const layerColor = layerDef ? new THREE.Color(layerDef.color) : new THREE.Color(0xffffff);
-
+      // Normalize bounding box to unit width
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      if (maxDim > 0) {
+        const scale = 1.0 / maxDim;
+        model.scale.set(scale, scale, scale);
+      }
+      // Center the model
+      const center = box.getCenter(new THREE.Vector3());
+      model.position.sub(center.multiplyScalar(model.scale.x));
+      // Apply X-Ray material to all meshes
       model.traverse((child: any) => {
         if (child.isMesh) {
-          const geo = child.geometry as THREE.BufferGeometry;
-          vertCount += geo.attributes.position ? geo.attributes.position.count : 0;
-
-          // Apply layer-specific X-Ray material
-          child.material = new THREE.ShaderMaterial({
-            uniforms: {
-              color: { value: layerColor },
-              opacity: { value: 0.25 },
-              fresnelPower: { value: 2.5 },
-              glowIntensity: { value: 1.8 },
-            },
-            vertexShader: xrayVertexShader,
-            fragmentShader: xrayFragmentShader,
-            transparent: true,
-            side: THREE.DoubleSide,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending,
-          });
+          child.material = createXRayMaterial(0xffffff, 0.25);
           child.castShadow = false;
           child.receiveShadow = false;
         }
       });
-
-      modelVertexCounts.current[id] = vertCount;
-      console.log(`Loaded model "${id}" from ${path}: ${vertCount} vertices`);
       return model;
     } catch (err) {
-      console.warn(`Model ${path} not found — no fallback.`);
+      console.warn(`Model ${path} not found.`);
       return null;
     }
-  }, []);
+  }, [createXRayMaterial]);
 
-  // ───── Draw AR labels on a 2D canvas overlay ─────
-  const drawArLabels = useCallback((labels: ArLabel[]) => {
-    const canvas = labelCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Match canvas size to its display size
-    const rect = canvas.getBoundingClientRect();
-    if (canvas.width !== rect.width || canvas.height !== rect.height) {
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-    }
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (const label of labels) {
-      const ax = label.anchorX * canvas.width;
-      const ay = label.anchorY * canvas.height;
-      const lx = label.x * canvas.width;
-      const ly = label.y * canvas.height;
-
-      // Leader line
-      ctx.beginPath();
-      ctx.moveTo(ax, ay);
-      ctx.lineTo(lx, ly);
-      ctx.strokeStyle = label.color;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 3]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Anchor dot
-      ctx.beginPath();
-      ctx.arc(ax, ay, 4, 0, Math.PI * 2);
-      ctx.fillStyle = label.color;
-      ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.6)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      // Glow
-      ctx.shadowColor = label.color;
-      ctx.shadowBlur = 8;
-
-      // Label background
-      ctx.font = "600 11px system-ui, sans-serif";
-      const textWidth = ctx.measureText(label.text).width;
-      const pad = 6;
-      const bgX = lx - 2;
-      const bgY = ly - 9;
-      const bgW = textWidth + pad * 2;
-      const bgH = 18;
-
-      ctx.fillStyle = "rgba(10, 30, 55, 0.88)";
-      ctx.beginPath();
-      ctx.roundRect(bgX, bgY, bgW, bgH, 4);
-      ctx.fill();
-      ctx.strokeStyle = label.color + "66";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      // Label text
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(label.text, lx + pad - 2, ly + 3);
-    }
-  }, []);
-
-  // ───── Init Three.js scene ─────
+  // Initialize Three.js scene
   const initThree = useCallback(async () => {
     if (!threeContainerRef.current || rendererRef.current) return;
 
@@ -367,64 +330,82 @@ export default function XRMMirrorPage() {
     const height = container.clientHeight;
 
     const scene = new THREE.Scene();
-    // NO background — fully transparent to show video behind
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100);
     camera.position.set(0, 0, 5);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, premultipliedAlpha: false });
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0);  // fully transparent
-    renderer.domElement.style.background = "transparent";
+    renderer.setClearColor(0x000000, 0);
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
     // Lighting
-    scene.add(new THREE.AmbientLight(0x404040, 0.5));
-    const p1 = new THREE.PointLight(0x14b8a6, 1, 10);
-    p1.position.set(2, 2, 3);
-    scene.add(p1);
-    const p2 = new THREE.PointLight(0x3b82f6, 0.8, 10);
-    p2.position.set(-2, -1, 2);
-    scene.add(p2);
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+    scene.add(ambientLight);
 
-    // Anatomical group
-    const group = new THREE.Group();
-    anatomicalGroupRef.current = group;
-    scene.add(group);
+    const pointLight = new THREE.PointLight(0x14b8a6, 1, 10);
+    pointLight.position.set(2, 2, 3);
+    scene.add(pointLight);
 
-    // Load all layer models
+    const pointLight2 = new THREE.PointLight(0x3b82f6, 0.8, 10);
+    pointLight2.position.set(-2, -1, 2);
+    scene.add(pointLight2);
+
+    // Head anatomical group
+    const headGroup = new THREE.Group();
+    anatomicalGroupRef.current = headGroup;
+    scene.add(headGroup);
+
+    // Chest anatomical group
+    const chestGroup = new THREE.Group();
+    chestGroupRef.current = chestGroup;
+    scene.add(chestGroup);
+
+    // Hands anatomical group
+    const handsGroup = new THREE.Group();
+    handsGroupRef.current = handsGroup;
+    scene.add(handsGroup);
+
+    // Load models for each layer
     let anyLoaded = false;
-    const loadedNames: string[] = [];
+    const modelVertexCounts: Record<string, number> = {};
     for (const layer of LAYER_DEFS) {
       const model = await loadModel(layer.id, layer.model);
       if (model) {
-        const verts = modelVertexCounts.current[layer.id] || 0;
-        if (verts < 100) {
-          console.warn(`Model ${layer.id} has only ${verts} verts — rejected as too simple.`);
-          continue;
-        }
-        model.visible = layersRef.current[layer.id];
+        model.visible = layers[layer.id];
         meshGroupRefs.current[layer.id] = model;
-        group.add(model);
+        // Assign to appropriate group
+        if (layer.id === "chest" || layer.id === "heart" || layer.id === "lungs") {
+          chestGroup.add(model);
+        } else if (layer.id === "hands") {
+          handsGroup.add(model);
+        } else {
+          headGroup.add(model);
+        }
         anyLoaded = true;
-        loadedNames.push(`${layer.id}(${verts}v)`);
+        // Count vertices
+        let vc = 0;
+        model.traverse((child: any) => {
+          if (child.isMesh && child.geometry) {
+            vc += child.geometry.attributes.position?.count || 0;
+          }
+        });
+        modelVertexCounts[layer.id] = vc;
       }
     }
 
     if (anyLoaded) {
       setModelsLoaded(true);
       setModelError("");
-      console.log(`Models loaded: ${loadedNames.join(", ")}`);
     } else {
       setModelsLoaded(false);
       setModelError(
         "No 3D anatomical models found in public/models/. " +
-        "Run `python scripts/generate_models.py` or download BodyParts3D meshes " +
-        "and place .glb files (skull.glb, brain.glb, facial.glb, eyes.glb, hands.glb) in public/models/."
+        "Download BodyParts3D meshes and place .glb files in public/models/."
       );
     }
 
@@ -438,10 +419,13 @@ export default function XRMMirrorPage() {
       renderer.setSize(w, h);
     };
     window.addEventListener("resize", handleResize);
-    return () => { window.removeEventListener("resize", handleResize); };
-  }, [loadModel]);
 
-  // ───── Start camera ─────
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [layers, loadModel]);
+
+  // Start camera
   const startCamera = async () => {
     setError("");
     setLoading(true);
@@ -459,7 +443,23 @@ export default function XRMMirrorPage() {
       await enumerateCameras();
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        // Guard against React Strict Mode double-mount
+        if (videoRef.current.srcObject !== stream) return;
+        // Wait for metadata if needed
+        if (videoRef.current.readyState < 1) {
+          await new Promise<void>((resolve) => {
+            videoRef.current!.addEventListener("loadedmetadata", () => resolve(), { once: true });
+          });
+        }
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          // Ignore AbortError from unmount
+          if ((playErr as Error)?.name !== "AbortError") {
+            console.error("Video play error:", playErr);
+          }
+          return;
+        }
         setCameraOn(true);
 
         const track = stream.getVideoTracks()[0];
@@ -477,20 +477,47 @@ export default function XRMMirrorPage() {
     }
   };
 
-  const stopCamera = () => {
+  // Cleanup function for unmount
+  const cleanupCamera = useCallback(() => {
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach((track) => track.stop());
       videoRef.current.srcObject = null;
     }
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = 0;
+    }
+    if (faceLandmarkerRef.current) {
+      faceLandmarkerRef.current.close();
+      faceLandmarkerRef.current = null;
+    }
+    if (handLandmarkerRef.current) {
+      handLandmarkerRef.current.close();
+      handLandmarkerRef.current = null;
+    }
+    if (poseLandmarkerRef.current) {
+      poseLandmarkerRef.current.close();
+      poseLandmarkerRef.current = null;
+    }
+    if (rendererRef.current) {
+      rendererRef.current.dispose();
+      rendererRef.current = null;
+    }
+    if (sceneRef.current) {
+      sceneRef.current.clear();
+      sceneRef.current = null;
+    }
     setCameraOn(false);
     setFaceLocked(false);
     setHandLocked(false);
+    setPoseLocked(false);
     lastTimestampRef.current = 0;
-  };
+  }, []);
 
-  // ───── Render loop ─────
+  const stopCamera = cleanupCamera;
+
+  // Render loop with tracking
   const startRenderLoop = useCallback(() => {
     const render = () => {
       animFrameRef.current = requestAnimationFrame(render);
@@ -500,8 +527,8 @@ export default function XRMMirrorPage() {
         const delta = now - lastTimeRef.current;
         fpsFramesRef.current.push(delta);
         if (fpsFramesRef.current.length > 30) fpsFramesRef.current.shift();
-        const avg = fpsFramesRef.current.reduce((a, b) => a + b, 0) / fpsFramesRef.current.length;
-        setFps(Math.round(1000 / avg));
+        const avgDelta = fpsFramesRef.current.reduce((a, b) => a + b, 0) / fpsFramesRef.current.length;
+        setFps(Math.round(1000 / avgDelta));
       }
       lastTimeRef.current = now;
 
@@ -511,142 +538,281 @@ export default function XRMMirrorPage() {
       const timestamp = Math.max(now, lastTimestampRef.current + 1);
       lastTimestampRef.current = timestamp;
 
-      const currentLayers = layersRef.current;
-      const currentDisplayMode = displayModeRef.current;
-      const currentTransparency = transparencyRef.current;
-      const currentRenderMode = renderModeRef.current;
+      const camera = cameraRef.current;
+      const renderer = rendererRef.current;
+      const scene = sceneRef.current;
+      if (!camera || !renderer || !scene) return;
 
-      const arLabels: ArLabel[] = [];
+      // Compute visible height at z=0 for scale mapping
+      const fovRad = (camera.fov * Math.PI) / 180;
+      const visibleHeight = 2 * Math.tan(fovRad / 2) * camera.position.z;
+      const visibleWidth = visibleHeight * camera.aspect;
 
-      // ───── Face tracking ─────
-      let faceFound = false;
+      // Face tracking
       if (faceLandmarkerRef.current) {
         try {
           const results = faceLandmarkerRef.current.detectForVideo(video, timestamp);
-          faceFound = !!(results.faceLandmarks && results.faceLandmarks.length > 0);
+          const faceFound = !!(results.faceLandmarks && results.faceLandmarks.length > 0);
           setFaceLocked((prev) => (prev === faceFound ? prev : faceFound));
           if (faceFound) {
-            const lm = results.faceLandmarks[0];
+            const landmarks = results.faceLandmarks[0];
 
-            // Build AR labels from landmark positions (mirrored X for scaleX(-1) video)
-            if (currentLayers.skull && currentDisplayMode !== "normal") {
-              const pt = lm[10]; // top of head
-              arLabels.push({
+            // Compute face width from cheekbone landmarks (234 -> 454)
+            const leftCheek = landmarks[234];
+            const rightCheek = landmarks[454];
+            const faceWidthNorm = Math.abs(rightCheek.x - leftCheek.x);
+            // Map to world units
+            const headWidthWorld = faceWidthNorm * visibleWidth * 1.15;
+
+            // Head center from nose bridge (landmark 168) or midpoint of cheeks
+            const centerX = (leftCheek.x + rightCheek.x) / 2;
+            const centerY = (leftCheek.y + rightCheek.y) / 2;
+
+            // Map to world coords (mirrored X)
+            const worldX = (0.5 - centerX) * visibleWidth;
+            const worldY = (0.5 - centerY) * visibleHeight;
+
+            // 4x4 matrix for rotation
+            let rotX = 0, rotY = 0, rotZ = 0;
+            if (results.facialTransformationMatrixes && results.facialTransformationMatrixes.length > 0) {
+              const matrix = results.facialTransformationMatrixes[0].data;
+              rotX = Math.atan2(matrix[9], matrix[10]);
+              rotY = Math.atan2(-matrix[8], Math.sqrt(matrix[9] * matrix[9] + matrix[10] * matrix[10]));
+              rotZ = Math.atan2(matrix[4], matrix[0]);
+            }
+
+            // Update head group
+            const headGroup = anatomicalGroupRef.current;
+            if (headGroup) {
+              headGroup.position.x += (worldX - headGroup.position.x) * 0.15;
+              headGroup.position.y += (worldY - headGroup.position.y) * 0.15;
+              headGroup.position.z += (0 - headGroup.position.z) * 0.15;
+              headGroup.scale.setScalar(headWidthWorld);
+              headGroup.rotation.x += (rotX - headGroup.rotation.x) * 0.1;
+              headGroup.rotation.y += (rotY - headGroup.rotation.y) * 0.1;
+              headGroup.rotation.z += (rotZ - headGroup.rotation.z) * 0.1;
+            }
+
+            // Update AR labels using 3D world projection
+            if (!headGroup) { setArLabels([]); return; }
+            headGroup.updateMatrixWorld(true);
+            const newLabels: ArLabel[] = [];
+            if (layersRef.current.skull) {
+              const anchor = new THREE.Vector3(0, 0.3, 0);
+              anchor.applyMatrix4(headGroup.matrixWorld);
+              const projected = anchor.clone().project(camera);
+              newLabels.push({
                 text: "Cranium / Skull",
-                anchorX: 1 - pt.x, anchorY: pt.y,
-                x: 1 - pt.x + 0.08, y: pt.y - 0.03,
+                x: (1 - projected.x) * 50 + 50,
+                y: (1 - projected.y) * 50 + 50,
+                anchorX: (1 - projected.x) * 50 + 50,
+                anchorY: (1 - projected.y) * 50 + 50,
                 color: "#bfe3ff",
               });
             }
-            if (currentLayers.brain && currentDisplayMode !== "normal") {
-              const pt = lm[8]; // between eyes, slightly up
-              arLabels.push({
+            if (layersRef.current.brain) {
+              const anchor = new THREE.Vector3(0, 0.1, 0);
+              anchor.applyMatrix4(headGroup.matrixWorld);
+              const projected = anchor.clone().project(camera);
+              newLabels.push({
                 text: "Brain (Cerebrum)",
-                anchorX: 1 - pt.x, anchorY: pt.y - 0.08,
-                x: 1 - pt.x - 0.1, y: pt.y - 0.12,
+                x: (1 - projected.x) * 50 + 50,
+                y: (1 - projected.y) * 50 + 50 - 5,
+                anchorX: (1 - projected.x) * 50 + 50,
+                anchorY: (1 - projected.y) * 50 + 50,
                 color: "#ff9fc0",
               });
             }
-            if (currentLayers.eyes && currentDisplayMode !== "normal") {
-              const ptL = lm[33]; // left eye inner
-              arLabels.push({
+            if (layersRef.current.eyes) {
+              const anchor = new THREE.Vector3(0.15, 0.05, 0.35);
+              anchor.applyMatrix4(headGroup.matrixWorld);
+              const projected = anchor.clone().project(camera);
+              newLabels.push({
                 text: "Eyes / Orbits",
-                anchorX: 1 - ptL.x, anchorY: ptL.y,
-                x: 1 - ptL.x + 0.1, y: ptL.y + 0.01,
+                x: (1 - projected.x) * 50 + 50,
+                y: (1 - projected.y) * 50 + 50,
+                anchorX: (1 - projected.x) * 50 + 50,
+                anchorY: (1 - projected.y) * 50 + 50,
                 color: "#fff3a8",
               });
             }
-            if (currentLayers.facial && currentDisplayMode !== "normal") {
-              const pt = lm[172]; // lower cheek
-              arLabels.push({
+            if (layersRef.current.facial) {
+              const anchor = new THREE.Vector3(0, -0.15, 0.38);
+              anchor.applyMatrix4(headGroup.matrixWorld);
+              const projected = anchor.clone().project(camera);
+              newLabels.push({
                 text: "Facial Muscles",
-                anchorX: 1 - pt.x, anchorY: pt.y,
-                x: 1 - pt.x - 0.1, y: pt.y + 0.03,
+                x: (1 - projected.x) * 50 + 50,
+                y: (1 - projected.y) * 50 + 50,
+                anchorX: (1 - projected.x) * 50 + 50,
+                anchorY: (1 - projected.y) * 50 + 50,
                 color: "#ff6b5e",
               });
             }
+            setArLabels(newLabels);
 
-            // Transform 3D group from face matrix
-            if (results.facialTransformationMatrixes && results.facialTransformationMatrixes.length > 0) {
-              const m = results.facialTransformationMatrixes[0].data;
-              if (anatomicalGroupRef.current) {
-                const group = anatomicalGroupRef.current;
-                const tx = m[12] * 0.5;
-                const ty = -m[13] * 0.5;
-                const tz = m[14] * 0.3;
-
-                group.position.x += (tx - group.position.x) * 0.15;
-                group.position.y += (ty - group.position.y) * 0.15;
-                group.position.z += (tz - group.position.z) * 0.15;
-
-                const rotX = Math.atan2(m[9], m[10]);
-                const rotY = Math.atan2(-m[8], Math.sqrt(m[9] * m[9] + m[10] * m[10]));
-                const rotZ = Math.atan2(m[4], m[0]);
-
-                group.rotation.x += (rotX - group.rotation.x) * 0.1;
-                group.rotation.y += (rotY - group.rotation.y) * 0.1;
-                group.rotation.z += (rotZ - group.rotation.z) * 0.1;
-              }
-            }
+          } else {
+            setArLabels([]);
           }
-        } catch (_) { /* silent */ }
+        } catch (e) {
+          // Silently handle detection errors
+        }
       }
 
-      // ───── Hand tracking ─────
-      let handFound = false;
+      // Hand tracking
       if (handLandmarkerRef.current) {
         try {
           const results = handLandmarkerRef.current.detectForVideo(video, timestamp);
-          handFound = !!(results.landmarks && results.landmarks.length > 0);
+          const handFound = !!(results.landmarks && results.landmarks.length > 0);
           setHandLocked((prev) => (prev === handFound ? prev : handFound));
-          if (handFound && currentLayers.hands) {
+          if (handFound && layersRef.current.hands) {
             const hand = results.landmarks[0];
-            const handsGroup = meshGroupRefs.current.hands;
+            const handsGroup = handsGroupRef.current;
             if (handsGroup && hand.length >= 21) {
               const wrist = hand[0];
-              handsGroup.position.x = (wrist.x - 0.5) * 2;
-              handsGroup.position.y = -(wrist.y - 0.5) * 2;
-              handsGroup.position.z = wrist.z * 2;
+              // Map wrist to world coords
+              const worldX = (0.5 - wrist.x) * visibleWidth;
+              const worldY = (0.5 - wrist.y) * visibleHeight;
+              const worldZ = wrist.z * 2;
 
-              if (currentDisplayMode !== "normal") {
-                arLabels.push({
+              handsGroup.position.x += (worldX - handsGroup.position.x) * 0.15;
+              handsGroup.position.y += (worldY - handsGroup.position.y) * 0.15;
+              handsGroup.position.z += (worldZ - handsGroup.position.z) * 0.15;
+
+              // Scale based on hand span (wrist to middle finger tip)
+              const middleTip = hand[12];
+              const handSpan = Math.sqrt(
+                Math.pow(middleTip.x - wrist.x, 2) +
+                Math.pow(middleTip.y - wrist.y, 2)
+              );
+              const handWidthWorld = handSpan * visibleWidth * 0.8;
+              handsGroup.scale.setScalar(Math.max(0.3, handWidthWorld));
+
+              // Add hand bone label
+              setArLabels((prev) => [
+                ...prev,
+                {
                   text: "Hand Bones (Metacarpals & Phalanges)",
-                  anchorX: 1 - wrist.x, anchorY: wrist.y,
-                  x: 1 - wrist.x + 0.06, y: wrist.y + 0.05,
+                  x: (1 - wrist.x) * 100,
+                  y: wrist.y * 100,
+                  anchorX: (1 - wrist.x) * 100,
+                  anchorY: wrist.y * 100,
                   color: "#d9f0ff",
-                });
-              }
-            }
-
-            // Track fingertip for lens mode
-            if (currentDisplayMode === "lens" && hand.length >= 9) {
-              const tip = hand[8]; // index fingertip
-              lensPosRef.current = { x: (1 - tip.x) * 100, y: tip.y * 100 };
+                },
+              ]);
             }
           }
-        } catch (_) { /* silent */ }
+        } catch (e) {
+          // Silently handle
+        }
       }
 
-      // ───── Update layer visibility ─────
-      Object.entries(currentLayers).forEach(([id, visible]) => {
-        const g = meshGroupRefs.current[id];
-        if (g) g.visible = visible;
+      // Pose tracking (upper body)
+      if (poseLandmarkerRef.current) {
+        try {
+          const results = poseLandmarkerRef.current.detectForVideo(video, timestamp);
+          const poseFound = !!(results.landmarks && results.landmarks.length > 0);
+          setPoseLocked((prev) => (prev === poseFound ? prev : poseFound));
+          if (poseFound) {
+            const landmarks = results.landmarks[0];
+            const chestGroup = chestGroupRef.current;
+            if (chestGroup) {
+              // Shoulder landmarks (11, 12)
+              const leftShoulder = landmarks[11];
+              const rightShoulder = landmarks[12];
+              // Hip landmarks (23, 24) for torso
+              const leftHip = landmarks[23];
+              const rightHip = landmarks[24];
+
+              // Compute chest center and width
+              const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x);
+              const chestCenterX = (leftShoulder.x + rightShoulder.x) / 2;
+              const chestCenterY = (leftShoulder.y + rightShoulder.y) / 2;
+              const torsoHeight = Math.abs(leftHip.y - leftShoulder.y);
+
+              // Map to world coords
+              const worldX = (0.5 - chestCenterX) * visibleWidth;
+              const worldY = (0.5 - chestCenterY) * visibleHeight;
+              const chestWidthWorld = shoulderWidth * visibleWidth * 1.2;
+
+              chestGroup.position.x += (worldX - chestGroup.position.x) * 0.15;
+              chestGroup.position.y += (worldY - chestGroup.position.y) * 0.15;
+              chestGroup.position.z = -0.5;
+              chestGroup.scale.setScalar(Math.max(0.5, chestWidthWorld));
+
+              // Add chest organ labels
+              if (layersRef.current.chest) {
+                setArLabels((prev) => [
+                  ...prev,
+                  {
+                    text: "Ribcage / Chest (Thoracic Cage)",
+                    x: (1 - chestCenterX) * 100,
+                    y: chestCenterY * 100,
+                    anchorX: (1 - chestCenterX) * 100,
+                    anchorY: chestCenterY * 100,
+                    color: "#7fd1ff",
+                  },
+                ]);
+              }
+              if (layersRef.current.heart) {
+                const heartX = chestCenterX;
+                const heartY = chestCenterY + 0.05;
+                setArLabels((prev) => [
+                  ...prev,
+                  {
+                    text: "Heart",
+                    x: (1 - heartX) * 100,
+                    y: heartY * 100,
+                    anchorX: (1 - heartX) * 100,
+                    anchorY: heartY * 100,
+                    color: "#ff4d6d",
+                  },
+                ]);
+              }
+              if (layersRef.current.lungs) {
+                const lungX = chestCenterX;
+                const lungY = chestCenterY + 0.02;
+                setArLabels((prev) => [
+                  ...prev,
+                  {
+                    text: "Lungs (Left & Right)",
+                    x: (1 - lungX) * 100,
+                    y: lungY * 100,
+                    anchorX: (1 - lungX) * 100,
+                    anchorY: lungY * 100,
+                    color: "#80ed99",
+                  },
+                ]);
+              }
+            }
+          }
+        } catch (e) {
+          // Silently handle
+        }
+      }
+
+      // Update layer visibility
+      Object.entries(layersRef.current).forEach(([id, visible]) => {
+        const group = meshGroupRefs.current[id];
+        if (group) group.visible = visible;
       });
 
-      // ───── Update material properties ─────
-      const opFactor = currentTransparency / 100;
+      // Update material mode and transparency
+      const opacityFactor = transparencyRef.current / 100;
       Object.values(meshGroupRefs.current).forEach((group) => {
         group.traverse((child: any) => {
           if (child.isMesh && child.material) {
             const mat = child.material as THREE.ShaderMaterial;
             if (mat.uniforms) {
-              if (mat.uniforms.opacity) mat.uniforms.opacity.value = opFactor * 0.6;
-              if (currentRenderMode === "solid" && mat.fragmentShader !== solidFragmentShader) {
+              if (mat.uniforms.opacity) {
+                mat.uniforms.opacity.value = opacityFactor * 0.6;
+              }
+              if (renderModeRef.current === "solid" && mat.fragmentShader !== solidFragmentShader) {
                 mat.fragmentShader = solidFragmentShader;
                 mat.blending = THREE.NormalBlending;
                 mat.depthWrite = true;
                 mat.needsUpdate = true;
-              } else if (currentRenderMode === "xray" && mat.fragmentShader !== xrayFragmentShader) {
+              } else if (renderModeRef.current === "xray" && mat.fragmentShader !== xrayFragmentShader) {
                 mat.fragmentShader = xrayFragmentShader;
                 mat.blending = THREE.AdditiveBlending;
                 mat.depthWrite = false;
@@ -657,83 +823,33 @@ export default function XRMMirrorPage() {
         });
       });
 
-      // ───── Render 3D scene ─────
+      // Update matrix world for all groups
+      if (anatomicalGroupRef.current) anatomicalGroupRef.current.updateMatrixWorld(true);
+      if (chestGroupRef.current) chestGroupRef.current.updateMatrixWorld(true);
+      if (handsGroupRef.current) handsGroupRef.current.updateMatrixWorld(true);
+
+      // Render
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
-        const renderer = rendererRef.current;
-        const container = threeContainerRef.current;
-
-        if (currentDisplayMode === "normal") {
-          // Hide 3D overlay entirely
-          renderer.domElement.style.opacity = "0";
-        } else if (currentDisplayMode === "split") {
-          // Show 3D on the right half only
-          renderer.domElement.style.opacity = "1";
-          renderer.domElement.style.clipPath = "inset(0 0 0 50%)";
-        } else if (currentDisplayMode === "lens") {
-          // Show 3D only inside a circle at lens position
-          const lp = lensPosRef.current;
-          const ls = lensSizeRef.current;
-          const radiusPx = ls * 3;
-          renderer.domElement.style.opacity = "1";
-          renderer.domElement.style.clipPath = `circle(${radiusPx}px at ${lp.x}% ${lp.y}%)`;
-        } else {
-          // xray: full overlay
-          renderer.domElement.style.opacity = "1";
-          renderer.domElement.style.clipPath = "none";
-        }
-
-        renderer.render(sceneRef.current, cameraRef.current);
-      }
-
-      // ───── Draw AR labels ─────
-      if (currentDisplayMode !== "normal") {
-        drawArLabels(arLabels);
-      } else {
-        // Clear labels in normal mode
-        const canvas = labelCanvasRef.current;
-        if (canvas) {
-          const ctx = canvas.getContext("2d");
-          if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
       }
     };
 
     render();
-  }, [drawArLabels]);
-
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      stopCamera();
-      if (faceLandmarkerRef.current) { faceLandmarkerRef.current.close(); faceLandmarkerRef.current = null; }
-      if (handLandmarkerRef.current) { handLandmarkerRef.current.close(); handLandmarkerRef.current = null; }
-      if (rendererRef.current) { rendererRef.current.dispose(); rendererRef.current = null; }
-      if (sceneRef.current) { sceneRef.current.clear(); sceneRef.current = null; }
-    };
   }, []);
 
-  // Track mouse for lens mode fallback (when no hand detected)
+  // Cleanup on unmount
   useEffect(() => {
-    const handleMove = (e: MouseEvent) => {
-      if (displayModeRef.current === "lens" && !handLocked) {
-        const rect = threeContainerRef.current?.getBoundingClientRect();
-        if (rect) {
-          setLensPos({
-            x: ((e.clientX - rect.left) / rect.width) * 100,
-            y: ((e.clientY - rect.top) / rect.height) * 100,
-          });
-        }
-      }
+    return () => {
+      cleanupCamera();
     };
-    window.addEventListener("mousemove", handleMove);
-    return () => window.removeEventListener("mousemove", handleMove);
-  }, [handLocked]);
+  }, [cleanupCamera]);
 
+  // Toggle layer
   const toggleLayer = (id: string) => {
     setLayers((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // ───── Glassmorphic HUD style ─────
+  // Glassmorphic HUD style
   const glassStyle: React.CSSProperties = {
     background: "rgba(15, 44, 77, 0.75)",
     backdropFilter: "blur(20px)",
@@ -747,11 +863,11 @@ export default function XRMMirrorPage() {
     <div style={{
       position: "fixed",
       inset: 0,
-      background: "#000",
+      background: "transparent",
       overflow: "hidden",
       zIndex: 0,
     }}>
-      {/* ━━━ LAYER 1: Live Webcam Video ━━━ */}
+      {/* Camera Feed - ALWAYS visible as base layer */}
       <video
         ref={videoRef}
         autoPlay
@@ -763,84 +879,100 @@ export default function XRMMirrorPage() {
           width: "100%",
           height: "100%",
           objectFit: "cover",
-          zIndex: 1,
+          zIndex: 0,
           transform: "scaleX(-1)",
-          background: "#000",
         }}
       />
 
-      {/* ━━━ LAYER 2: Three.js transparent overlay ━━━ */}
+      {/* Three.js Canvas Overlay - transparent background */}
       <div
         ref={threeContainerRef}
         style={{
           position: "absolute",
           inset: 0,
-          zIndex: 2,
+          zIndex: 1,
           pointerEvents: "none",
-          background: "transparent",
+          opacity: displayMode === "normal" ? 0 : 1,
+          transition: "opacity 0.3s ease",
         }}
       />
 
-      {/* ━━━ LAYER 3: Split mode divider line ━━━ */}
+      {/* (Label canvas removed - using HTML labels instead) */}
+
+      {/* Split mode mask */}
       {displayMode === "split" && cameraOn && (
         <div style={{
           position: "absolute",
-          left: "50%",
-          top: 0,
-          bottom: 0,
-          width: "2px",
-          zIndex: 5,
-          background: "rgba(20, 184, 166, 0.6)",
-          boxShadow: "0 0 12px rgba(20, 184, 166, 0.5)",
-        }}>
-          <div style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: "rgba(15, 44, 77, 0.85)",
-            color: "white",
-            fontSize: "0.65rem",
-            fontWeight: 600,
-            padding: "4px 8px",
-            borderRadius: "4px",
-            whiteSpace: "nowrap",
-            border: "1px solid rgba(20, 184, 166, 0.4)",
-          }}>
-            LIVE ← | → X-RAY
-          </div>
-        </div>
-      )}
-
-      {/* ━━━ LAYER 3: Lens mode visual ring ━━━ */}
-      {displayMode === "lens" && cameraOn && (
-        <div style={{
-          position: "absolute",
-          left: `${lensPos.x}%`,
-          top: `${lensPos.y}%`,
-          transform: "translate(-50%, -50%)",
-          width: `${lensSize * 6}px`,
-          height: `${lensSize * 6}px`,
-          borderRadius: "50%",
-          border: "2px solid rgba(20, 184, 166, 0.5)",
-          boxShadow: "0 0 20px rgba(20, 184, 166, 0.3), inset 0 0 20px rgba(20, 184, 166, 0.1)",
-          zIndex: 5,
+          inset: 0,
+          zIndex: 3,
           pointerEvents: "none",
+          background: "linear-gradient(to right, transparent 50%, rgba(0,0,0,0.0) 50%)",
+          borderRight: "2px solid rgba(20, 184, 166, 0.5)",
         }} />
       )}
 
-      {/* ━━━ LAYER 4: AR Label Canvas ━━━ */}
-      <canvas
-        ref={labelCanvasRef}
-        style={{
+      {/* Lens mode radial mask */}
+      {displayMode === "lens" && cameraOn && (
+        <div style={{
           position: "absolute",
           inset: 0,
-          width: "100%",
-          height: "100%",
-          zIndex: 6,
+          zIndex: 3,
           pointerEvents: "none",
-        }}
-      />
+          background: `radial-gradient(circle ${lensSize * 3}px at ${lensPos.x}% ${lensPos.y}%, transparent 0%, rgba(0,0,0,0.85) ${lensSize * 4}px)`,
+        }} />
+      )}
+
+      {/* AR Labels Overlay */}
+      {cameraOn && arLabels.length > 0 && displayMode !== "normal" && (
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 4,
+          pointerEvents: "none",
+        }}>
+          {arLabels.map((label, idx) => (
+            <div
+              key={idx}
+              style={{
+                position: "absolute",
+                left: `${label.anchorX}%`,
+                top: `${label.anchorY}%`,
+                transform: "translate(-50%, -120%)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "2px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <span style={{
+                fontSize: "0.7rem",
+                fontWeight: 600,
+                color: "white",
+                background: "rgba(15, 44, 77, 0.85)",
+                padding: "2px 8px",
+                borderRadius: "4px",
+                border: `1px solid ${label.color}40`,
+                textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+              }}>
+                {label.text}
+              </span>
+              <div style={{
+                width: "1px",
+                height: "12px",
+                background: label.color,
+              }} />
+              <div style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                background: label.color,
+                boxShadow: `0 0 6px ${label.color}`,
+              }} />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Loading Overlay */}
       {loading && (
@@ -888,7 +1020,9 @@ export default function XRMMirrorPage() {
           border: "1px solid #fed8b1",
         }}>
           <strong>⚠ 3D Models Not Found</strong>
-          <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.8rem" }}>{modelError}</p>
+          <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.8rem" }}>
+            {modelError}
+          </p>
         </div>
       )}
 
@@ -912,7 +1046,7 @@ export default function XRMMirrorPage() {
         </div>
       )}
 
-      {/* Camera Start Screen */}
+      {/* Camera Start Button (when off) */}
       {!cameraOn && !loading && (
         <div style={{
           position: "absolute",
@@ -923,13 +1057,13 @@ export default function XRMMirrorPage() {
           alignItems: "center",
           justifyContent: "center",
           gap: "1.5rem",
-          background: "linear-gradient(135deg, rgba(15,44,77,0.95), rgba(10,25,50,0.98))",
+          background: "rgba(0,0,0,0.3)",
         }}>
           <Camera style={{ width: "64px", height: "64px", color: "rgba(255,255,255,0.5)" }} />
           <h2 style={{ color: "white", margin: 0, fontSize: "1.5rem", textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}>
             Start Camera for AR Experience
           </h2>
-          <p style={{ color: "rgba(255,255,255,0.8)", margin: 0, maxWidth: "400px", textAlign: "center" }}>
+          <p style={{ color: "rgba(255,255,255,0.8)", margin: 0, maxWidth: "400px", textAlign: "center", textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
             Position yourself 2-3 feet from the camera. Allow camera permissions when prompted.
           </p>
 
@@ -978,7 +1112,7 @@ export default function XRMMirrorPage() {
         </div>
       )}
 
-      {/* ━━━ Top HUD Bar ━━━ */}
+      {/* Top HUD Bar */}
       <div style={{
         position: "absolute",
         top: 0,
@@ -1034,8 +1168,15 @@ export default function XRMMirrorPage() {
             <span style={{ color: handLocked ? "#4ade80" : "rgba(255,255,255,0.5)" }}>
               ● Hand: {handLocked ? "LOCKED" : "—"}
             </span>
-            <span style={{ color: "rgba(255,255,255,0.7)" }}>{fps} FPS</span>
-            <span style={{ color: "rgba(255,255,255,0.7)" }}>{resolution}</span>
+            <span style={{ color: poseLocked ? "#4ade80" : "rgba(255,255,255,0.5)" }}>
+              ● Pose: {poseLocked ? "LOCKED" : "—"}
+            </span>
+            <span style={{ color: "rgba(255,255,255,0.7)" }}>
+              {fps} FPS
+            </span>
+            <span style={{ color: "rgba(255,255,255,0.7)" }}>
+              {resolution}
+            </span>
             {modelsLoaded && (
               <span style={{ color: "#4ade80" }}>● Models: OK</span>
             )}
@@ -1058,7 +1199,7 @@ export default function XRMMirrorPage() {
         </div>
       </div>
 
-      {/* ━━━ Right HUD Panel ━━━ */}
+      {/* Right HUD Panel - Controls */}
       {cameraOn && showControls && (
         <div style={{
           position: "absolute",
@@ -1122,6 +1263,7 @@ export default function XRMMirrorPage() {
                     fontSize: "0.75rem",
                     fontWeight: 600,
                     cursor: "pointer",
+                    textTransform: "capitalize",
                   }}
                 >
                   {mode === "xray" ? "X-Ray" : "Solid"}
@@ -1194,11 +1336,6 @@ export default function XRMMirrorPage() {
                     display: "inline-block",
                   }} />
                   {layer.label}
-                  {modelVertexCounts.current[layer.id] ? (
-                    <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)", marginLeft: "auto" }}>
-                      {modelVertexCounts.current[layer.id]}v
-                    </span>
-                  ) : null}
                 </label>
               ))}
             </div>
@@ -1283,7 +1420,7 @@ export default function XRMMirrorPage() {
         </button>
       )}
 
-      {/* Bottom HUD */}
+      {/* Bottom HUD - Disclaimer & Attribution */}
       <div style={{
         position: "absolute",
         bottom: 0,
@@ -1298,10 +1435,18 @@ export default function XRMMirrorPage() {
         flexWrap: "wrap",
         gap: "0.5rem",
       }}>
-        <p style={{ margin: 0, fontSize: "0.75rem", color: "rgba(255,255,255,0.6)" }}>
+        <p style={{
+          margin: 0,
+          fontSize: "0.75rem",
+          color: "rgba(255,255,255,0.6)",
+        }}>
           ⚠️ <strong>EDUCATIONAL USE ONLY:</strong> Not a diagnostic medical device. {DISCLAIMER.substring(0, 80)}...
         </p>
-        <p style={{ margin: 0, fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>
+        <p style={{
+          margin: 0,
+          fontSize: "0.7rem",
+          color: "rgba(255,255,255,0.4)",
+        }}>
           3D models: BodyParts3D (CC BY-SA 2.1 Japan) · SCANOVA v{APP_VERSION}
         </p>
       </div>
