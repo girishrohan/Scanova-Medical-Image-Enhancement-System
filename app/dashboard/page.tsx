@@ -11,16 +11,20 @@ import {
   ImagePlay, 
   Search, 
   ShieldCheck, 
-  Sparkles
+  Sparkles,
+  ArrowRight,
+  Camera,
+  Check,
 } from "lucide-react";
 import Link from "next/link";
 import { COLORS, APP_NAME, APP_VERSION, DISCLAIMER, SAMPLE_IMAGES } from "@/lib/config";
 import { getAuth, clearAuth } from "@/lib/auth-context";
+import { useSharedImage } from "@/lib/image-context";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { hasImage, image } = useSharedImage();
   const [userName, setUserName] = useState("User");
-  const [hasImage, setHasImage] = useState(false);
 
   useEffect(() => {
     const auth = getAuth();
@@ -29,11 +33,6 @@ export default function DashboardPage() {
       return;
     }
     setUserName(auth.username);
-    
-    const imageData = localStorage.getItem("scanova-image-data");
-    if (imageData) {
-      setHasImage(true);
-    }
   }, [router]);
 
   const handleLogout = () => {
@@ -48,11 +47,33 @@ export default function DashboardPage() {
     { label: "Reports Generated", value: "0", icon: Search, color: COLORS.muted },
   ];
 
-  const actions = [
-    { label: "Enhance Image", description: "Upload and process medical images", href: "/image-enhancement", color: COLORS.blue },
-    { label: "AI Analysis", description: "Body part identification and abnormality detection", href: "/ai-analysis", color: COLORS.teal },
-    { label: "X-Ray Mirror", description: "Real-time anatomical visualization with AR", href: "/xray-mirror", color: COLORS.teal },
-    { label: "Image Comparison", description: "Compare original vs enhanced side by side", href: "/image-comparison", color: COLORS.navy },
+  const modules = [
+    {
+      title: "Image Enhancement",
+      subtitle: "2D scan processing",
+      description: "Upload a medical scan and apply denoising, contrast enhancement, and sharpening. View quantitative metrics and side-by-side comparisons.",
+      href: "/image-enhancement",
+      icon: FileImage,
+      accent: COLORS.blue,
+      features: ["6-stage enhancement pipeline", "CLAHE / histogram equalization", "Median & Gaussian denoising", "Unsharp-mask sharpening", "Quantitative metrics"],
+    },
+    {
+      title: "X-Ray Mirror AR",
+      subtitle: "Live anatomical tracking",
+      description: "Real-time 3D anatomical visualization overlaid on your camera feed. Track facial landmarks and explore skull, brain, muscle, and eye models.",
+      href: "/xray-mirror",
+      icon: Camera,
+      accent: COLORS.teal,
+      features: ["MediaPipe face & hand tracking", "X-Ray shader with edge glow", "Anatomical layer toggles", "Transparency controls", "Split-screen comparison"],
+    },
+  ];
+
+  const quickLinks = [
+    { label: "AI Analysis", href: "/ai-analysis" },
+    { label: "Histogram", href: "/histogram-analysis" },
+    { label: "Image Info", href: "/image-information" },
+    { label: "Comparison", href: "/image-comparison" },
+    { label: "About", href: "/about" },
   ];
 
   return (
@@ -120,6 +141,26 @@ export default function DashboardPage() {
 
       <hr style={{ border: "none", borderTop: "1px solid #e2e8f0", margin: "1.5rem 0" }} />
 
+      {/* Active scan status */}
+      {hasImage && image && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.75rem",
+          padding: "0.75rem 1rem",
+          background: "#ecfdf5",
+          border: "1px solid #a7f3d0",
+          borderRadius: "8px",
+          marginBottom: "1.5rem",
+          fontSize: "0.85rem",
+        }}>
+          <Check style={{ width: "16px", height: "16px", color: "#059669" }} />
+          <span style={{ color: "#065f46" }}>
+            Active scan: <strong>{image.name}</strong> ({image.width} × {image.height})
+          </span>
+        </div>
+      )}
+
       {/* Overview Stats */}
       <h2 style={{
         color: COLORS.navy,
@@ -181,81 +222,152 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Quick Actions */}
+      {/* Module Cards */}
       <h2 style={{
         color: COLORS.navy,
         margin: "0 0 1rem 0",
         fontSize: "1.25rem",
         fontWeight: 700,
       }}>
-        Quick Actions
+        Modules
       </h2>
 
       <div style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-        gap: "1rem",
+        gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+        gap: "1.25rem",
         marginBottom: "2rem",
       }}>
-        {actions.map((action, idx) => (
+        {modules.map((mod) => (
           <Link
-            key={idx}
-            href={action.href}
-            style={{
-              textDecoration: "none",
-              color: "inherit",
-              display: "block",
-            }}
+            key={mod.title}
+            href={mod.href}
+            style={{ textDecoration: "none", color: "inherit" }}
           >
             <div style={{
               background: "white",
+              border: "1px solid #e2e8f0",
               borderRadius: "12px",
               padding: "1.5rem",
-              border: "1px solid #e2e8f0",
-              transition: "transform 0.2s, box-shadow 0.2s",
-            }}>
-              <div style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "1rem",
-              }}>
+              transition: "border-color 0.15s, box-shadow 0.15s",
+              cursor: "pointer",
+              height: "100%",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = mod.accent;
+              e.currentTarget.style.boxShadow = `0 4px 12px ${mod.accent}15`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "#e2e8f0";
+              e.currentTarget.style.boxShadow = "none";
+            }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
                 <div style={{
                   width: "40px",
                   height: "40px",
-                  borderRadius: "10px",
-                  background: `${action.color}10`,
+                  borderRadius: "8px",
+                  background: `${mod.accent}10`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  flexShrink: 0,
                 }}>
-                  <Activity style={{
-                    width: "20px",
-                    height: "20px",
-                    color: COLORS.teal,
-                  }} />
+                  <mod.icon style={{ width: "20px", height: "20px", color: mod.accent }} />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <h3 style={{
-                    color: COLORS.navy,
-                    margin: "0 0 0.5rem 0",
-                    fontSize: "1rem",
-                    fontWeight: 600,
-                    lineHeight: 1.3,
-                  }}>
-                    {action.label}
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600, color: "#0f172a" }}>
+                    {mod.title}
                   </h3>
-                  <p style={{
-                    color: COLORS.muted,
-                    margin: 0,
-                    fontSize: "0.85rem",
-                    lineHeight: 1.4,
-                  }}>
-                    {action.description}
+                  <p style={{ margin: 0, fontSize: "0.8rem", color: "#64748b" }}>
+                    {mod.subtitle}
                   </p>
                 </div>
               </div>
+
+              <p style={{
+                fontSize: "0.9rem",
+                color: "#475569",
+                lineHeight: 1.5,
+                margin: "0 0 1rem 0",
+              }}>
+                {mod.description}
+              </p>
+
+              <ul style={{
+                listStyle: "none",
+                padding: 0,
+                margin: "0 0 1rem 0",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.35rem",
+              }}>
+                {mod.features.map((f) => (
+                  <li key={f} style={{
+                    fontSize: "0.8rem",
+                    color: "#64748b",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}>
+                    <span style={{
+                      width: "4px",
+                      height: "4px",
+                      borderRadius: "50%",
+                      background: mod.accent,
+                      display: "inline-block",
+                      flexShrink: 0,
+                    }} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                color: mod.accent,
+                fontSize: "0.85rem",
+                fontWeight: 500,
+              }}>
+                Open module <ArrowRight style={{ width: "14px", height: "14px" }} />
+              </div>
             </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Quick links */}
+      <h2 style={{
+        color: COLORS.navy,
+        margin: "0 0 1rem 0",
+        fontSize: "1.25rem",
+        fontWeight: 700,
+      }}>
+        Quick Access
+      </h2>
+
+      <div style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "0.5rem",
+        marginBottom: "2rem",
+      }}>
+        {quickLinks.map((link) => (
+          <Link
+            key={link.label}
+            href={link.href}
+            style={{
+              padding: "0.4rem 0.75rem",
+              borderRadius: "6px",
+              border: "1px solid #e2e8f0",
+              background: "white",
+              color: "#475569",
+              textDecoration: "none",
+              fontSize: "0.85rem",
+            }}
+          >
+            {link.label}
           </Link>
         ))}
       </div>

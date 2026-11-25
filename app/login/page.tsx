@@ -11,7 +11,7 @@ type View = "login" | "forgot" | "forgot-sent";
 function LoginForm() {
   const router = useRouter();
   const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
 
   // Login state
   const [username, setUsername] = useState("");

@@ -4,15 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Activity,
   ArrowRight,
-  BarChart3,
-  Camera,
   Check,
   FileImage,
   Globe,
   Telescope,
   UploadCloud,
+  Zap,
+  ShieldCheck,
+  Activity,
+  Camera,
 } from "lucide-react";
 import { COLORS, APP_NAME, APP_VERSION, DISCLAIMER, PROJECT_FULL_NAME } from "@/lib/config";
 import { getAuth, clearAuth } from "@/lib/auth-context";
@@ -53,50 +54,6 @@ export default function HomePage() {
       </div>
     );
   }
-
-  const modules = [
-    {
-      title: "Image Enhancement",
-      subtitle: "2D scan processing",
-      description:
-        "Upload a medical scan and apply denoising, contrast enhancement, and sharpening. View quantitative metrics and side-by-side comparisons.",
-      href: "/image-enhancement",
-      icon: FileImage,
-      accent: "#1e40af",
-      features: [
-        "6-stage enhancement pipeline",
-        "CLAHE / histogram equalization",
-        "Median & Gaussian denoising",
-        "Unsharp-mask sharpening",
-        "Quantitative metrics",
-      ],
-    },
-    {
-      title: "X-Ray Mirror AR",
-      subtitle: "Live anatomical tracking",
-      description:
-        "Real-time 3D anatomical visualization overlaid on your camera feed. Track facial landmarks and explore skull, brain, muscle, and eye models.",
-      href: "/xray-mirror",
-      icon: Camera,
-      accent: "#0d9488",
-      features: [
-        "MediaPipe face & hand tracking",
-        "X-Ray shader with edge glow",
-        "Anatomical layer toggles",
-        "Transparency controls",
-        "Split-screen comparison",
-      ],
-    },
-  ];
-
-  const quickLinks = [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "AI Analysis", href: "/ai-analysis" },
-    { label: "Histogram", href: "/histogram-analysis" },
-    { label: "Image Info", href: "/image-information" },
-    { label: "Comparison", href: "/image-comparison" },
-    { label: "About", href: "/about" },
-  ];
 
   return (
     <div style={{
@@ -265,26 +222,156 @@ export default function HomePage() {
         {/* Hero */}
         <section style={{ marginBottom: "2.5rem" }}>
           <h1 style={{
-            fontSize: "1.75rem",
-            fontWeight: 700,
+            fontSize: "2rem",
+            fontWeight: 800,
             color: "#0f2c4d",
             margin: "0 0 0.5rem 0",
             letterSpacing: "-0.02em",
           }}>
-            {PROJECT_FULL_NAME}
+            Welcome to {APP_NAME}
           </h1>
           <p style={{
-            fontSize: "1rem",
+            fontSize: "1.05rem",
             color: "#475569",
-            margin: 0,
-            maxWidth: "560px",
+            margin: "0 0 1.5rem 0",
+            maxWidth: "640px",
             lineHeight: 1.6,
           }}>
-            Select a module below to begin. Upload a medical scan once and it stays active across all analysis views.
+            {PROJECT_FULL_NAME} — an educational platform for medical image enhancement
+            and real-time 3D anatomical visualization.
           </p>
         </section>
 
-        {/* Shared image status */}
+        {/* What is Scanova */}
+        <section style={{
+          background: "white",
+          borderRadius: "12px",
+          padding: "2rem",
+          border: "1px solid #e2e8f0",
+          marginBottom: "2rem",
+        }}>
+          <h2 style={{
+            color: "#0f2c4d",
+            margin: "0 0 1rem 0",
+            fontSize: "1.25rem",
+            fontWeight: 700,
+          }}>
+            What is SCANOVA?
+          </h2>
+          <p style={{
+            color: "#475569",
+            fontSize: "0.95rem",
+            lineHeight: 1.7,
+            margin: "0 0 1rem 0",
+          }}>
+            SCANOVA is an educational medical imaging workspace that lets you upload, enhance,
+            and analyze medical scans (X-rays, MRI, CT) entirely in your browser. It also
+            provides a real-time 3D X-Ray Mirror AR experience that overlays anatomical
+            structures on your live camera feed.
+          </p>
+          <p style={{
+            color: "#475569",
+            fontSize: "0.95rem",
+            lineHeight: 1.7,
+            margin: 0,
+          }}>
+            All processing runs client-side — your images never leave your device.
+          </p>
+        </section>
+
+        {/* Capabilities */}
+        <section style={{ marginBottom: "2rem" }}>
+          <h2 style={{
+            color: "#0f2c4d",
+            margin: "0 0 1rem 0",
+            fontSize: "1.25rem",
+            fontWeight: 700,
+          }}>
+            Capabilities
+          </h2>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "1rem",
+          }}>
+            {[
+              { title: "Image Enhancement", desc: "6-stage pipeline: denoising, contrast (CLAHE), sharpening. Quantitative metrics and histograms.", icon: "🔬" },
+              { title: "X-Ray Mirror AR", desc: "Real-time 3D anatomical visualization with MediaPipe tracking and Fresnel X-Ray shader.", icon: "🩻" },
+              { title: "AI Analysis", desc: "Automated body region identification and visual feature observation.", icon: "🤖" },
+              { title: "Image Comparison", desc: "Side-by-side original vs. enhanced with delta metrics.", icon: "⚖️" },
+            ].map((cap) => (
+              <div key={cap.title} style={{
+                background: "white",
+                borderRadius: "10px",
+                padding: "1.25rem",
+                border: "1px solid #e2e8f0",
+              }}>
+                <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>{cap.icon}</div>
+                <h3 style={{ color: "#0f2c4d", margin: "0 0 0.4rem 0", fontSize: "1rem", fontWeight: 600 }}>
+                  {cap.title}
+                </h3>
+                <p style={{ color: "#475569", margin: 0, fontSize: "0.85rem", lineHeight: 1.5 }}>
+                  {cap.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Shared Scan Workflow */}
+        <section style={{
+          background: "white",
+          borderRadius: "12px",
+          padding: "2rem",
+          border: "1px solid #e2e8f0",
+          marginBottom: "2rem",
+        }}>
+          <h2 style={{
+            color: "#0f2c4d",
+            margin: "0 0 1rem 0",
+            fontSize: "1.25rem",
+            fontWeight: 700,
+          }}>
+            How the Shared Scan Workflow Works
+          </h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            {[
+              "Upload a medical scan once from any module (Enhancement, AI Analysis, Comparison, etc.)",
+              "The scan stays active across all sections — no need to re-upload",
+              "Switch between Enhancement, Comparison, Histogram, and AI Analysis freely",
+              "Replace the scan anytime with the 'Clear image' / 'Replace' action",
+              "All processing runs in your browser — images never leave your device",
+            ].map((step, idx) => (
+              <div key={idx} style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "0.75rem",
+              }}>
+                <div style={{
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "50%",
+                  background: COLORS.teal,
+                  color: "white",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  marginTop: "2px",
+                }}>
+                  {idx + 1}
+                </div>
+                <p style={{ color: "#475569", margin: 0, fontSize: "0.9rem", lineHeight: 1.5 }}>
+                  {step}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Active scan status */}
         {hasImage && image && (
           <div style={{
             display: "flex",
@@ -294,7 +381,7 @@ export default function HomePage() {
             background: "#ecfdf5",
             border: "1px solid #a7f3d0",
             borderRadius: "8px",
-            marginBottom: "1.5rem",
+            marginBottom: "2rem",
             fontSize: "0.85rem",
           }}>
             <Check style={{ width: "16px", height: "16px", color: "#059669" }} />
@@ -304,110 +391,35 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Module cards */}
+        {/* CTA to Dashboard */}
         <section style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-          gap: "1.25rem",
-          marginBottom: "2.5rem",
+          textAlign: "center",
+          marginBottom: "2rem",
         }}>
-          {modules.map((mod) => (
-            <Link
-              key={mod.title}
-              href={mod.href}
-              style={{ textDecoration: "none", color: "inherit" }}
-            >
-              <div style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px",
-                padding: "1.5rem",
-                transition: "border-color 0.15s, box-shadow 0.15s",
-                cursor: "pointer",
-                height: "100%",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = mod.accent;
-                e.currentTarget.style.boxShadow = `0 4px 12px ${mod.accent}15`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "#e2e8f0";
-                e.currentTarget.style.boxShadow = "none";
-              }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-                  <div style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "8px",
-                    background: `${mod.accent}10`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}>
-                    <mod.icon style={{ width: "20px", height: "20px", color: mod.accent }} />
-                  </div>
-                  <div>
-                    <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600, color: "#0f172a" }}>
-                      {mod.title}
-                    </h2>
-                    <p style={{ margin: 0, fontSize: "0.8rem", color: "#64748b" }}>
-                      {mod.subtitle}
-                    </p>
-                  </div>
-                </div>
-
-                <p style={{
-                  fontSize: "0.9rem",
-                  color: "#475569",
-                  lineHeight: 1.5,
-                  margin: "0 0 1rem 0",
-                }}>
-                  {mod.description}
-                </p>
-
-                <ul style={{
-                  listStyle: "none",
-                  padding: 0,
-                  margin: "0 0 1rem 0",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.35rem",
-                }}>
-                  {mod.features.map((f) => (
-                    <li key={f} style={{
-                      fontSize: "0.8rem",
-                      color: "#64748b",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                    }}>
-                      <span style={{
-                        width: "4px",
-                        height: "4px",
-                        borderRadius: "50%",
-                        background: mod.accent,
-                        display: "inline-block",
-                        flexShrink: 0,
-                      }} />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.4rem",
-                  color: mod.accent,
-                  fontSize: "0.85rem",
-                  fontWeight: 500,
-                }}>
-                  Open module <ArrowRight style={{ width: "14px", height: "14px" }} />
-                </div>
-              </div>
-            </Link>
-          ))}
+          <Link
+            href="/dashboard"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "0.85rem 2rem",
+              borderRadius: "10px",
+              background: COLORS.blue,
+              color: "white",
+              textDecoration: "none",
+              fontWeight: 600,
+              fontSize: "1rem",
+            }}
+          >
+            Go to Dashboard <ArrowRight style={{ width: "18px", height: "18px" }} />
+          </Link>
+          <p style={{
+            color: COLORS.muted,
+            fontSize: "0.8rem",
+            marginTop: "0.75rem",
+          }}>
+            Access all modules, tools, and your active scan
+          </p>
         </section>
 
         {/* Quick links */}
@@ -423,7 +435,16 @@ export default function HomePage() {
             Quick access
           </h3>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-            {quickLinks.map((link) => (
+            {[
+              { label: "Dashboard", href: "/dashboard" },
+              { label: "Image Enhancement", href: "/image-enhancement" },
+              { label: "X-Ray Mirror AR", href: "/xray-mirror" },
+              { label: "AI Analysis", href: "/ai-analysis" },
+              { label: "Histogram", href: "/histogram-analysis" },
+              { label: "Image Info", href: "/image-information" },
+              { label: "Comparison", href: "/image-comparison" },
+              { label: "About", href: "/about" },
+            ].map((link) => (
               <Link
                 key={link.label}
                 href={link.href}
