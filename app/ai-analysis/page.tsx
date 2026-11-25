@@ -182,28 +182,34 @@ export default function AIAnalysisPage() {
             Upload Image for AI Analysis
           </h3>
           
-          <div style={{
-            border: "2px dashed #cbd5e1",
-            borderRadius: "12px",
-            padding: "2rem",
-            textAlign: "center",
-            cursor: "pointer",
-            background: "#f8fafc",
-          }}>
-            <UploadCloud style={{ width: "32px", height: "32px", color: COLORS.teal, margin: "0 auto 0.5rem" }} />
-            <p style={{ margin: "0 0 0.5rem 0", fontWeight: 500 }}>
-              Click to upload medical image
-            </p>
-            <p style={{ color: COLORS.muted, fontSize: "0.85rem" }}>
-              PNG, JPG, BMP, WebP files up to 30 MB
-            </p>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              style={{ width: "100%", padding: "0.5rem", marginTop: "1rem" }}
-            />
-          </div>
+          {!image ? (
+            <div style={{
+              border: "2px dashed #cbd5e1",
+              borderRadius: "12px",
+              padding: "2rem",
+              textAlign: "center",
+              cursor: "pointer",
+              background: "#f8fafc",
+            }}>
+              <UploadCloud style={{ width: "32px", height: "32px", color: COLORS.teal, margin: "0 auto 0.5rem" }} />
+              <p style={{ margin: "0 0 0.5rem 0", fontWeight: 500 }}>
+                Click to upload medical image
+              </p>
+              <p style={{ color: COLORS.muted, fontSize: "0.85rem" }}>
+                PNG, JPG, BMP, WebP files up to 30 MB
+              </p>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                style={{ width: "100%", padding: "0.5rem", marginTop: "1rem" }}
+              />
+            </div>
+          ) : (
+            <div style={{ padding: "0.75rem 1rem", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "8px", fontSize: "0.85rem", color: "#065f46", marginBottom: "1rem" }}>
+              Using active scan from shared workspace. Replace via the Dashboard toolbar.
+            </div>
+          )}
 
           {image && (
             <div style={{ marginTop: "1.5rem" }}>

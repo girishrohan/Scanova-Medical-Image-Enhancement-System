@@ -148,27 +148,33 @@ export default function ImageComparisonPage() {
             Upload Images
           </h3>
           
-          <div style={{
-            border: "2px dashed #cbd5e1",
-            borderRadius: "12px",
-            padding: "2rem",
-            textAlign: "center",
-            cursor: "pointer",
-            background: "#f8fafc",
-            marginBottom: "1rem",
-          }}
-          onClick={() => fileRef.current?.click()}
-          >
-            <UploadCloud style={{ width: "32px", height: "32px", color: COLORS.teal, margin: "0 auto 0.5rem" }} />
-            <p style={{ margin: "0 0 0.5rem 0" }}>Choose images to compare</p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="sr-only"
-            />
-          </div>
+          {!original ? (
+            <div style={{
+              border: "2px dashed #cbd5e1",
+              borderRadius: "12px",
+              padding: "2rem",
+              textAlign: "center",
+              cursor: "pointer",
+              background: "#f8fafc",
+              marginBottom: "1rem",
+            }}
+            onClick={() => fileRef.current?.click()}
+            >
+              <UploadCloud style={{ width: "32px", height: "32px", color: COLORS.teal, margin: "0 auto 0.5rem" }} />
+              <p style={{ margin: "0 0 0.5rem 0" }}>Choose images to compare</p>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="sr-only"
+              />
+            </div>
+          ) : (
+            <div style={{ padding: "0.75rem 1rem", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "8px", fontSize: "0.85rem", color: "#065f46", marginBottom: "1rem" }}>
+              Using active scan from shared workspace.
+            </div>
+          )}
 
           <div style={{ marginBottom: "1rem" }}>
             <p style={{ color: COLORS.muted, margin: "0 0 0.5rem 0" }}>Sample Images:</p>

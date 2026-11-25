@@ -150,26 +150,32 @@ export default function HistogramAnalysisPage() {
             Upload Image
           </h3>
           
-          <div style={{
-            border: "2px dashed #cbd5e1",
-            borderRadius: "12px",
-            padding: "2rem",
-            textAlign: "center",
-            cursor: "pointer",
-            background: "#f8fafc",
-            marginBottom: "1rem",
-          }}
-          onClick={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
-          >
-            <ChartBar style={{ width: "32px", height: "32px", color: COLORS.teal, margin: "0 auto 0.5rem" }} />
-            <p style={{ margin: "0 0 0.5rem 0" }}>Choose an image for histogram analysis</p>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="sr-only"
-            />
-          </div>
+          {!image ? (
+            <div style={{
+              border: "2px dashed #cbd5e1",
+              borderRadius: "12px",
+              padding: "2rem",
+              textAlign: "center",
+              cursor: "pointer",
+              background: "#f8fafc",
+              marginBottom: "1rem",
+            }}
+            onClick={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
+            >
+              <ChartBar style={{ width: "32px", height: "32px", color: COLORS.teal, margin: "0 auto 0.5rem" }} />
+              <p style={{ margin: "0 0 0.5rem 0" }}>Choose an image for histogram analysis</p>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="sr-only"
+              />
+            </div>
+          ) : (
+            <div style={{ padding: "0.75rem 1rem", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "8px", fontSize: "0.85rem", color: "#065f46", marginBottom: "1rem" }}>
+              Using active scan from shared workspace.
+            </div>
+          )}
 
           {image && (
             <div style={{

@@ -131,6 +131,18 @@ export const DISCLAIMER = (
   + "Clinical use requires appropriate validation and qualified medical oversight."
 );
 
+// ─── Technology Stack ────────────────────────────────────────────────────────
+export const TECH_STACK = [
+  "Next.js 16 (App Router)",
+  "React 19",
+  "TypeScript",
+  "Turbopack",
+  "Three.js",
+  "MediaPipe",
+  "Canvas API",
+  "Client-side Processing",
+];
+
 // ─── Demo Credentials ────────────────────────────────────────────────────────
 export const DEMO_USERS = {
   demo: "scanova2024",

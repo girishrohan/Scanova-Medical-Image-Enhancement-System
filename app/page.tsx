@@ -411,58 +411,18 @@ export default function HomePage() {
               fontSize: "1rem",
             }}
           >
-            Go to Dashboard <ArrowRight style={{ width: "18px", height: "18px" }} />
+            Launch SCANOVA <ArrowRight style={{ width: "18px", height: "18px" }} />
           </Link>
           <p style={{
             color: COLORS.muted,
             fontSize: "0.8rem",
             marginTop: "0.75rem",
           }}>
-            Access all modules, tools, and your active scan
+            Open Workspace Dashboard — access all modules, tools, and your active scan
           </p>
         </section>
 
-        {/* Quick links */}
-        <section style={{ marginBottom: "2rem" }}>
-          <h3 style={{
-            fontSize: "0.8rem",
-            fontWeight: 600,
-            color: "#94a3b8",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            margin: "0 0 0.75rem 0",
-          }}>
-            Quick access
-          </h3>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-            {[
-              { label: "Dashboard", href: "/dashboard" },
-              { label: "Image Enhancement", href: "/image-enhancement" },
-              { label: "X-Ray Mirror AR", href: "/xray-mirror" },
-              { label: "AI Analysis", href: "/ai-analysis" },
-              { label: "Histogram", href: "/histogram-analysis" },
-              { label: "Image Info", href: "/image-information" },
-              { label: "Comparison", href: "/image-comparison" },
-              { label: "About", href: "/about" },
-            ].map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                style={{
-                  padding: "0.4rem 0.75rem",
-                  borderRadius: "6px",
-                  border: "1px solid #e2e8f0",
-                  background: "white",
-                  color: "#475569",
-                  textDecoration: "none",
-                  fontSize: "0.85rem",
-                }}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        </section>
+        {/* Single primary CTA only — no quick-access shortcut grid */}
 
         {/* Disclaimer */}
         <div style={{
