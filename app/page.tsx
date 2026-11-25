@@ -23,6 +23,7 @@ export default function HomePage() {
   const { hasImage, image } = useSharedImage();
   const [userName, setUserName] = useState("User");
   const [authChecked, setAuthChecked] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const auth = getAuth();
@@ -104,6 +105,90 @@ export default function HomePage() {
       color: "#0f172a",
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     }}>
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            background: "rgba(0,0,0,0.5)",
+          }}
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              width: "280px",
+              height: "100%",
+              background: "white",
+              padding: "1.5rem",
+              boxShadow: "-4px 0 20px rgba(0,0,0,0.15)",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+              <span style={{ fontWeight: 700, fontSize: "1.1rem", color: "#0f2c4d" }}>Navigation</span>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ background: "none", border: "none", fontSize: "1.5rem", cursor: "pointer", color: "#475569" }}
+                aria-label="Close menu"
+              >
+                ✕
+              </button>
+            </div>
+            <nav style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              {[
+                { label: "Dashboard", href: "/dashboard" },
+                { label: "Image Enhancement", href: "/image-enhancement" },
+                { label: "X-Ray Mirror AR", href: "/xray-mirror" },
+                { label: "AI Analysis", href: "/ai-analysis" },
+                { label: "Histogram Analysis", href: "/histogram-analysis" },
+                { label: "Image Comparison", href: "/image-comparison" },
+                { label: "Image Information", href: "/image-information" },
+                { label: "About", href: "/about" },
+              ].map((link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  style={{
+                    padding: "0.75rem 1rem",
+                    borderRadius: "8px",
+                    color: "#0f2c4d",
+                    textDecoration: "none",
+                    fontSize: "0.95rem",
+                    fontWeight: 500,
+                    background: "#f8fafc",
+                  }}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+            <button
+              onClick={() => { clearAuth(); router.push("/login"); }}
+              style={{
+                marginTop: "1.5rem",
+                width: "100%",
+                padding: "0.75rem",
+                borderRadius: "8px",
+                border: "1px solid #e2e8f0",
+                background: "white",
+                color: "#475569",
+                cursor: "pointer",
+                fontSize: "0.9rem",
+              }}
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top bar */}
       <header style={{
         display: "flex",
@@ -114,25 +199,46 @@ export default function HomePage() {
         borderBottom: "1px solid #e2e8f0",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div style={{
-            width: "36px",
-            height: "36px",
-            borderRadius: "8px",
-            background: "#0f2c4d",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "white",
-            fontSize: "1.1rem",
-            fontWeight: 700,
-          }}>
-            S
-          </div>
-          <div>
-            <span style={{ fontWeight: 700, fontSize: "1rem", color: "#0f2c4d" }}>{APP_NAME}</span>
-            <span style={{ color: "#64748b", fontSize: "0.8rem", marginLeft: "0.5rem" }}>v{APP_VERSION}</span>
-          </div>
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.75rem", textDecoration: "none" }}>
+            <div style={{
+              width: "36px",
+              height: "36px",
+              borderRadius: "8px",
+              background: "#0f2c4d",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              fontSize: "1.1rem",
+              fontWeight: 700,
+            }} aria-label="Scanova Home">
+              S
+            </div>
+            <div>
+              <span style={{ fontWeight: 700, fontSize: "1rem", color: "#0f2c4d" }}>{APP_NAME}</span>
+              <span style={{ color: "#64748b", fontSize: "0.8rem", marginLeft: "0.5rem" }}>v{APP_VERSION}</span>
+            </div>
+          </Link>
         </div>
+
+        {/* Mobile menu toggle */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle navigation menu"
+          aria-expanded={mobileMenuOpen}
+          style={{
+            display: "none",
+            background: "none",
+            border: "1px solid #e2e8f0",
+            borderRadius: "6px",
+            padding: "0.5rem",
+            cursor: "pointer",
+            color: "#475569",
+          }}
+          className="mobile-menu-btn"
+        >
+          {mobileMenuOpen ? "✕" : "☰"}
+        </button>
 
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <span style={{ fontSize: "0.85rem", color: "#475569" }}>
@@ -349,6 +455,15 @@ export default function HomePage() {
         }}>
           <strong>⚠ Educational use only.</strong> {DISCLAIMER} 3D models: BodyParts3D (CC BY-SA 2.1 Japan).
         </div>
+
+      <style>{`
+        @media (min-width: 768px) {
+          .mobile-menu-btn { display: none !important; }
+        }
+        @media (max-width: 767px) {
+          .mobile-menu-btn { display: flex !important; }
+        }
+      `}</style>
       </main>
     </div>
   );
