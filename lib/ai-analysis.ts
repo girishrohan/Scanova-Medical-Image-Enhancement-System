@@ -9,6 +9,9 @@ export type Finding = {
 };
 
 export type AnalysisResult = {
+  bodyRegion: string;
+  bodyRegionConfidence: "high" | "medium" | "low";
+  urgentFinding: string | null;
   findings: Finding[];
   summary: string;
   recommendations: string;
@@ -192,83 +195,160 @@ export async function analyzeImage(imageUrl: string): Promise<AnalysisResult> {
   if (discontinuityRatio > 0.05) overallRisk = "high";
   else if (discontinuityRatio > 0.02) overallRisk = "medium";
 
-  // Build findings dynamically
+  // ─── Body Region Identification ──────────────────────────────────────────
+  // Heuristic based on aspect ratio, edge distribution, and intensity patterns
+  const aspectRatio = width / height;
+  let bodyRegion = "General scan — region unconfirmed";
+  let bodyRegionConfidence: "high" | "medium" | "low" = "low";
+
+  if (aspectRatio > 1.3) {
+    // Wide image — likely chest, abdomen, or panoramic
+    if (meanIntensity > 100 && stdDev > 40) {
+      bodyRegion = "Chest / Thorax (estimated)";
+      bodyRegionConfidence = "medium";
+    } else {
+      bodyRegion = "Wide-format scan (region unconfirmed)";
+      bodyRegionConfidence = "low";
+    }
+  } else if (aspectRatio < 0.75) {
+    // Tall/narrow — likely limb, spine, or hand
+    if (edgeDensity > 0.08) {
+      bodyRegion = "Limb / Hand / Wrist (estimated)";
+      bodyRegionConfidence = "medium";
+    } else {
+      bodyRegion = "Tall-format scan (region unconfirmed)";
+      bodyRegionConfidence = "low";
+    }
+  } else {
+    // Square-ish — could be head, joint, or small region
+    if (meanIntensity < 80 && stdDev > 50) {
+      bodyRegion = "Skull / Head (estimated)";
+      bodyRegionConfidence = "medium";
+    } else if (edgeDensity > 0.12) {
+      bodyRegion = "Joint / Extremity (estimated)";
+      bodyRegionConfidence = "medium";
+    } else {
+      bodyRegion = "General scan — region unconfirmed";
+      bodyRegionConfidence = "low";
+    }
+  }
+
+  // ─── Urgent Finding Detection ─────────────────────────────────────────────
+  // Detect strong signs of possible structural break / discontinuity
+  let urgentFinding: string | null = null;
+  if (discontinuityRatio > 0.08 && edgeDensity > 0.15) {
+    urgentFinding =
+      "Possible bone break or severe structural split detected — needs prompt medical attention";
+  } else if (discontinuityRatio > 0.05 && contrast > 0.6) {
+    urgentFinding =
+      "Notable structural discontinuity detected — review recommended by a qualified professional";
+  } else if (darkPixelRatio > 0.7) {
+    urgentFinding =
+      "Large dark regions detected — may indicate air, fluid, or missing tissue; professional review advised";
+  }
+
+  // Build findings in plain language
   const findings: Finding[] = [];
 
-  // Finding 1: Structural continuity assessment
+  // Finding 1: Body region
   findings.push({
-    type: `Structural continuity assessment (${discontinuityCount} discontinuity points detected)`,
-    confidence: Math.max(50, Math.min(99, Math.round((1 - discontinuityRatio) * 100))),
-    risk: overallRisk,
+    type: `Likely body region: ${bodyRegion}`,
+    confidence: (bodyRegionConfidence as string) === "high" ? 90 : (bodyRegionConfidence as string) === "medium" ? 70 : 40,
+    risk: "low",
   });
 
-  // Finding 2: Edge/gradient analysis
-  findings.push({
-    type: `Edge density: ${(edgeDensity * 100).toFixed(1)}% — ${edgeDensity > 0.15 ? "high structural complexity" : edgeDensity > 0.05 ? "moderate structural detail" : "low structural detail"}`,
-    confidence: Math.max(50, Math.min(99, edgeSharpness)),
-    risk: edgeDensity > 0.2 ? "medium" : "low",
-  });
+  // Finding 2: Structural observation (plain language)
+  if (discontinuityRatio > 0.05) {
+    findings.push({
+      type: "Significant structural discontinuities found — possible break, crack, or sharp boundary visible",
+      confidence: Math.max(60, Math.min(95, Math.round((1 - discontinuityRatio) * 100))),
+      risk: "high",
+    });
+  } else if (discontinuityRatio > 0.02) {
+    findings.push({
+      type: "Moderate structural edges detected — normal anatomical boundaries likely",
+      confidence: Math.max(65, Math.min(95, Math.round((1 - discontinuityRatio) * 100))),
+      risk: "medium",
+    });
+  } else {
+    findings.push({
+      type: "Smooth structural continuity — no sharp breaks or discontinuities apparent",
+      confidence: Math.max(70, Math.min(98, Math.round((1 - discontinuityRatio) * 100))),
+      risk: "low",
+    });
+  }
 
-  // Finding 3: Contrast analysis
+  // Finding 3: Contrast observation
   findings.push({
-    type: `Contrast utilization: ${(contrast * 100).toFixed(1)}% (range ${minI}–${maxI})`,
+    type: contrast > 0.5
+      ? "Good contrast — structures are clearly distinguishable"
+      : contrast > 0.3
+        ? "Moderate contrast — some structures may be harder to distinguish"
+        : "Low contrast — image may benefit from enhancement",
     confidence: Math.max(50, Math.min(99, contrastQuality)),
     risk: contrast < 0.3 ? "medium" : "low",
   });
 
-  // Finding 4: Intensity distribution
+  // Finding 4: Detail/complexity
   findings.push({
-    type: `Intensity distribution: mean ${meanIntensity.toFixed(0)}, σ ${stdDev.toFixed(1)} — ${stdDev > 60 ? "high dynamic range" : stdDev > 30 ? "moderate range" : "narrow range"}`,
+    type: edgeDensity > 0.15
+      ? "High structural detail — complex anatomy visible"
+      : edgeDensity > 0.05
+        ? "Moderate structural detail visible"
+        : "Low structural detail — image may be smooth or low resolution",
+    confidence: Math.max(50, Math.min(99, edgeSharpness)),
+    risk: "low",
+  });
+
+  // Finding 5: Brightness balance
+  findings.push({
+    type: meanIntensity > 160
+      ? "Image is quite bright — may reduce visibility of subtle features"
+      : meanIntensity < 60
+        ? "Image is quite dark — may need brightness adjustment"
+        : "Brightness is well-balanced for analysis",
     confidence: Math.max(50, Math.min(99, intensityBalance)),
-    risk: stdDev < 20 ? "medium" : "low",
+    risk: meanIntensity > 200 || meanIntensity < 40 ? "medium" : "low",
   });
 
-  // Finding 5: Dark/bright region analysis
-  findings.push({
-    type: `Region analysis: ${(darkPixelRatio * 100).toFixed(1)}% dark, ${(brightPixelRatio * 100).toFixed(1)}% bright pixels`,
-    confidence: Math.max(50, Math.min(99, Math.round(entropy * 10 + 20))),
-    risk: darkPixelRatio > 0.6 || brightPixelRatio > 0.6 ? "medium" : "low",
-  });
-
-  // Summary
+  // Summary (plain language)
   const summaryParts: string[] = [];
+  summaryParts.push(`This scan appears to show a ${bodyRegion.toLowerCase()} region.`);
   summaryParts.push(
-    `Image dimensions: ${width}×${height} (${totalPixels.toLocaleString()} pixels analyzed).`
-  );
-  summaryParts.push(
-    `Mean intensity: ${meanIntensity.toFixed(1)}, standard deviation: ${stdDev.toFixed(1)}, entropy: ${entropy.toFixed(2)}.`
-  );
-  summaryParts.push(
-    `Edge density: ${(edgeDensity * 100).toFixed(1)}%, contrast: ${(contrast * 100).toFixed(1)}%, discontinuity points: ${discontinuityCount}.`
+    `The image has ${edgeDensity > 0.15 ? "high" : edgeDensity > 0.05 ? "moderate" : "low"} structural detail with ${contrast > 0.5 ? "good" : contrast > 0.3 ? "moderate" : "low"} contrast.`
   );
   if (discontinuityRatio > 0.02) {
     summaryParts.push(
-      `Notable structural discontinuities detected (${discontinuityCount} points, ${(discontinuityRatio * 100).toFixed(2)}% of image). These may correspond to anatomical boundaries, edges, or potential structural breaks — review recommended.`
+      "Some sharp structural edges or breaks were detected that may correspond to anatomical boundaries or potential injury sites."
     );
   } else {
-    summaryParts.push(
-      `No significant structural discontinuities detected. Image shows relatively uniform structural continuity.`
-    );
+    summaryParts.push("No sharp structural breaks were detected in this scan.");
+  }
+  if (meanIntensity < 60 || meanIntensity > 200) {
+    summaryParts.push("The image brightness is outside the typical range, which may affect visibility of details.");
   }
 
   const summary = summaryParts.join(" ");
 
   // Recommendations
   let recommendations = "";
-  if (overallRisk === "high") {
+  if (urgentFinding) {
     recommendations =
-      "High discontinuity density detected. Review the highlighted regions for potential structural breaks or sharp boundaries. This is an educational observation only — clinical interpretation requires qualified radiologist review.";
+      urgentFinding + ". Please consult a qualified doctor or radiologist promptly for proper evaluation. This is an educational visual-analysis tool, not a medical diagnosis.";
   } else if (overallRisk === "medium") {
     recommendations =
-      "Moderate structural features detected. Review edge-density and contrast regions for notable anatomical boundaries. This is an educational observation only — clinical interpretation requires qualified radiologist review.";
+      "Some notable visual features were detected. Review the findings above and consider using the enhancement tools for better visualization. This is an educational visual-analysis tool, not a medical diagnosis.";
   } else {
     recommendations =
-      "Image shows relatively uniform structural continuity with moderate detail. Continue with enhancement pipeline for improved visualization. This is an educational observation only — clinical interpretation requires qualified radiologist review.";
+      "No urgent visual concerns detected in this scan. Use the enhancement pipeline for improved visualization if needed. This is an educational visual-analysis tool, not a medical diagnosis.";
   }
 
   const processingTime = `${((performance.now() - start) / 1000).toFixed(2)}s`;
 
   return {
+    bodyRegion,
+    bodyRegionConfidence,
+    urgentFinding,
     findings,
     summary,
     recommendations,
